@@ -13,34 +13,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.deepsleep.model.Statistics
-
-// 确保导入缺失的图标
-import androidx.compose.material.icons.filled.AcUnit
-import androidx.compose.material.icons.filled.Analytics
-import androidx.compose.material.icons.filled.BatteryChargingFull
-import androidx.compose.material.icons.filled.Block
-import androidx.compose.material.icons.filled.Bolt
-import androidx.compose.material.icons.filled.Cast
+// 确保导入 Cpu 图标
 import androidx.compose.material.icons.filled.Cpu
-import androidx.compose.material.icons.filled.DeleteForever
-import androidx.compose.material.icons.filled.Games
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Navigation
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Radar
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Restore
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.ShowChart
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.SportsEsports
-import androidx.compose.material.icons.filled.SwapVert
-import androidx.compose.material.icons.filled.Thermostat
-import androidx.compose.material.icons.filled.Timer
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
-import androidx.compose.material.icons.filled.Tune
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,7 +123,7 @@ fun StatsScreen(
                         StatRow(
                             label = "CPU 绑定次数",
                             value = "${statistics.cpuBindingCount}",
-                            icon = Icons.Default.Cpu
+                            icon = Icons.Default.Cpu   // 此处使用 Cpu
                         )
                         StatRow(
                             label = "当前 CPU 模式",
