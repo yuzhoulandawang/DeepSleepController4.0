@@ -1,344 +1,297 @@
-package com.example.deepsleep.ui.stats
+package com.example.deepsleep.service
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.deepsleep.model.Statistics
-// 必须导入 Cpu 图标
-import androidx.compose.material.icons.filled.Cpu
+import android.app.Service
+import android.content.Intent
+import android.os.IBinder
+import android.util.Log
+import kotlinx.coroutines.*
+import java.io.BufferedReader
+import java.io.File
+import java.io.InputStreamReader
+import java.util.concurrent.ConcurrentHashMap
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun StatsScreen(
-    onNavigateBack: () -> Unit,
-    viewModel: StatsViewModel = viewModel()
-) {
-    val statistics by viewModel.statistics.collectAsState()
+class FreezerService : Service() {
+    private val TAG = "FreezerService"
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("统计数据") },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.refreshStatistics() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "刷新")
-                    }
-                }
-            )
+    private val FROZEN_GROUP = "/dev/freezer/frozen"
+    private val THAW_GROUP = "/dev/freezer/thaw"
+    private val FREEZE_DELAY = 30L
+    private val MONITOR_LEVEL = 2
+    private val FG_CACHE_FILE = "/dev/local/tmp/fg_app.cache"
+    private val FG_CACHE_TTL = 2
+    private val STATE_DIR = "/dev/local/tmp/freeze_state"
+    private val WORKER_DIR = "$STATE_DIR/workers"
+
+    private val SYSTEM_WHITELIST = setOf(
+        "com.android.inputmethod.latin",
+        "com.spotify.music",
+        "com.android.launcher3",
+        "com.android.dialer",
+        "com.android.systemui"
+    )
+
+    private val ENABLE_FREEZER = true
+    private var lastFgApp: String? = null
+    private var lastFgCheckTime = 0L
+    private var currentFgApp: String? = null
+    private var currentIsSystem = false
+    private val tokenMap = ConcurrentHashMap<String, String>()
+    private val freezeTasks = ConcurrentHashMap<String, kotlinx.coroutines.Job?>()
+    private val monitorScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    override fun onCreate() {
+        super.onCreate()
+        try {
+            File(FROZEN_GROUP).mkdirs()
+            File(THAW_GROUP).mkdirs()
+            File(FROZEN_GROUP, "freezer.state").writeText("FROZEN")
+            File(THAW_GROUP, "freezer.state").writeText("THAWED")
+            File(STATE_DIR).mkdirs()
+            File(WORKER_DIR).mkdirs()
+            Log.i(TAG, "Freezer groups initialized")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to initialize", e)
         }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                StatsCard(
-                    title = "📊 优化概览",
-                    icon = Icons.Default.Analytics
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatRow(
-                            label = "总运行时长",
-                            value = formatDuration(statistics.totalRuntime),
-                            icon = Icons.Default.AccessTime
-                        )
-                        StatRow(
-                            label = "优化次数",
-                            value = "${statistics.totalOptimizations}",
-                            icon = Icons.Default.Bolt
-                        )
-                        StatRow(
-                            label = "节省电量",
-                            value = "${statistics.powerSaved} mAh",
-                            icon = Icons.Default.BatteryChargingFull
-                        )
-                        StatRow(
-                            label = "释放内存",
-                            value = "${statistics.memoryReleased} MB",
-                            icon = Icons.Default.Memory
-                        )
-                    }
-                }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startMonitor()
+        return START_STICKY
+    }
+
+    private fun startMonitor() {
+        monitorScope.launch {
+            currentFgApp = getForegroundApp()
+            currentIsSystem = isSystemApp(currentFgApp)
+            writeFgCache(currentFgApp)
+            Log.i(TAG, "Monitor started, initial FG: $currentFgApp (system=$currentIsSystem)")
+
+            val tags = when (MONITOR_LEVEL) {
+                1 -> listOf("-b", "events", "-s", "wm_set_resumed_activity:V", "ActivityManager:V")
+                2 -> listOf("-b", "events", "-b", "system", "-b", "main", "-v", "tag", "-s",
+                    "wm_set_resumed_activity:V", "ActivityManager:V", "WindowManager:V")
+                3 -> listOf("-b", "all", "-s", "wm_set_resumed_activity:V")
+                else -> listOf("-b", "events", "-s", "wm_set_resumed_activity:V")
             }
 
-            item {
-                StatsCard(
-                    title = "🎮 GPU 优化",
-                    icon = Icons.Default.Games
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatRow(
-                            label = "GPU 优化次数",
-                            value = "${statistics.gpuOptimizations}",
-                            icon = Icons.Default.Speed
-                        )
-                        StatRow(
-                            label = "平均 GPU 频率",
-                            value = "${statistics.avgGpuFreq / 1000000} MHz",
-                            icon = Icons.Default.TrendingUp
-                        )
-                        StatRow(
-                            label = "GPU 节流次数",
-                            value = "${statistics.gpuThrottlingCount}",
-                            icon = Icons.Default.Thermostat
-                        )
-                        StatRow(
-                            label = "当前 GPU 模式",
-                            value = getGpuModeName(statistics.currentGpuMode),
-                            icon = Icons.Default.Tune
-                        )
+            try {
+                val process = ProcessBuilder("logcat", *tags.toTypedArray()).redirectErrorStream(true).start()
+                val reader = BufferedReader(InputStreamReader(process.inputStream))
+                reader.useLines { lines ->
+                    lines.forEach { line ->
+                        parseLogcatLine(line)?.let { pkg -> handleForegroundChange(pkg) }
                     }
                 }
-            }
-
-            item {
-                StatsCard(
-                    title = "🖥️ CPU 优化",
-                    icon = Icons.Default.Memory
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatRow(
-                            label = "CPU 绑定次数",
-                            value = "${statistics.cpuBindingCount}",
-                            icon = Icons.Default.Cpu   // 必须用 Icons.Default.Cpu
-                        )
-                        StatRow(
-                            label = "当前 CPU 模式",
-                            value = getCpuModeName(statistics.currentCpuMode),
-                            icon = Icons.Default.Tune
-                        )
-                        StatRow(
-                            label = "CPU 使用率优化",
-                            value = "${statistics.cpuUsageOptimized}%",
-                            icon = Icons.Default.TrendingDown
-                        )
-                    }
-                }
-            }
-
-            item {
-                StatsCard(
-                    title = "🔧 进程压制",
-                    icon = Icons.Default.Settings
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatRow(
-                            label = "压制应用总数",
-                            value = "${statistics.suppressedApps}",
-                            icon = Icons.Default.Block
-                        )
-                        StatRow(
-                            label = "释放进程数",
-                            value = "${statistics.killedProcesses}",
-                            icon = Icons.Default.DeleteForever
-                        )
-                        StatRow(
-                            label = "OOM 调整次数",
-                            value = "${statistics.oomAdjustments}",
-                            icon = Icons.Default.SwapVert
-                        )
-                        StatRow(
-                            label = "平均 OOM 评分",
-                            value = "${statistics.avgOomScore}",
-                            icon = Icons.Default.ShowChart
-                        )
-                    }
-                }
-            }
-
-            item {
-                StatsCard(
-                    title = "❄️ 应用冻结",
-                    icon = Icons.Default.AcUnit
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatRow(
-                            label = "冻结应用总数",
-                            value = "${statistics.frozenApps}",
-                            icon = Icons.Default.AcUnit
-                        )
-                        StatRow(
-                            label = "解冻应用总数",
-                            value = "${statistics.thawedApps}",
-                            icon = Icons.Default.Restore
-                        )
-                        StatRow(
-                            label = "平均冻结时长",
-                            value = formatDuration(statistics.avgFreezeTime),
-                            icon = Icons.Default.Timer
-                        )
-                        StatRow(
-                            label = "阻止冻结次数",
-                            value = "${statistics.preventedFreezes}",
-                            icon = Icons.Default.Shield
-                        )
-                    }
-                }
-            }
-
-            item {
-                StatsCard(
-                    title = "🎯 场景检测",
-                    icon = Icons.Default.Radar
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatRow(
-                            label = "游戏场景",
-                            value = "${statistics.gameSceneCount}",
-                            icon = Icons.Default.SportsEsports
-                        )
-                        StatRow(
-                            label = "导航场景",
-                            value = "${statistics.navigationSceneCount}",
-                            icon = Icons.Default.Navigation
-                        )
-                        StatRow(
-                            label = "充电场景",
-                            value = "${statistics.chargingSceneCount}",
-                            icon = Icons.Default.BatteryChargingFull
-                        )
-                        StatRow(
-                            label = "通话场景",
-                            value = "${statistics.callSceneCount}",
-                            icon = Icons.Default.Phone
-                        )
-                        StatRow(
-                            label = "投屏场景",
-                            value = "${statistics.castSceneCount}",
-                            icon = Icons.Default.Cast
-                        )
-                    }
-                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Monitor failed", e)
             }
         }
     }
-}
 
-@Composable
-fun StatsCard(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+    private fun parseLogcatLine(line: String): String? {
+        val skipKeywords = listOf("recents_animation_input_consumer", "SnapshotStartingWindow",
+            "InputMethod", "NOT_VISIBLE", "NO_WINDOW", "Update InputWindowHandle", "finishDrawingLocked",
+            "showSurfaceRobustly", "interceptKey", "drawing", "token", "laying", "animat",
+            "orientation", "config", "type=1400", "leaving", "Ignore")
+
+        if (skipKeywords.any { line.contains(it) }) return null
+
+        var pkg: String? = null
+        var isSwitch = false
+
+        when {
+            line.contains("wm_set_resumed_activity") -> {
+                val afterBracket = line.substringAfter("[", "")
+                val afterComma = afterBracket.substringAfter(",", "")
+                pkg = afterComma.substringBefore("/")
+                if (!pkg.isNullOrBlank()) isSwitch = true
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            content()
+            line.contains("cmp=") -> {
+                val cmp = line.substringAfter("cmp=", "")
+                pkg = cmp.substringBefore("/")
+                isSwitch = true
+            }
+            line.contains("moveTaskToFront") || line.contains("realActivity=") -> {
+                val real = line.substringAfter("realActivity=", "")
+                pkg = real.substringBefore("/")
+                isSwitch = true
+            }
+        }
+
+        if (isSwitch && !pkg.isNullOrBlank()) {
+            pkg = pkg.replace("}", "").replace(":", "").trim()
+            if (pkg.contains(".") && !pkg.contains("=") && !pkg.contains("[") && !pkg.contains("]")) {
+                return pkg
+            }
+        }
+        return null
+    }
+
+    private fun handleForegroundChange(newPkg: String) {
+        if (newPkg == currentFgApp) return
+        val isNewSystem = isSystemApp(newPkg)
+
+        if (isNewSystem && currentIsSystem) {
+            currentFgApp = newPkg
+            writeFgCache(newPkg)
+            return
+        }
+
+        if (File(STATE_DIR, "$newPkg.token").exists()) {
+            val newToken = generateToken()
+            tokenMap[newPkg] = newToken
+            File(STATE_DIR, "$newPkg.token").writeText(newToken)
+            unfreezePackage(newPkg)
+            currentFgApp = newPkg
+            currentIsSystem = isNewSystem
+            writeFgCache(newPkg)
+            Log.d(TAG, "Switch to previously frozen app: $newPkg")
+            return
+        }
+
+        if (newPkg != currentFgApp) {
+            val newToken = generateToken()
+            tokenMap[newPkg] = newToken
+            File(STATE_DIR, "$newPkg.token").writeText(newToken)
+            unfreezePackage(newPkg)
+
+            if (ENABLE_FREEZER && !currentFgApp.isNullOrBlank() && !currentIsSystem) {
+                val fgApp = currentFgApp
+                if (fgApp != null && !hasActiveWorker(fgApp)) {
+                    val oldToken = generateToken()
+                    tokenMap[fgApp] = oldToken
+                    File(STATE_DIR, "$fgApp.token").writeText(oldToken)
+                    startWorker(fgApp, oldToken)
+                }
+            }
+
+            currentFgApp = newPkg
+            currentIsSystem = isNewSystem
+            writeFgCache(newPkg)
+            Log.d(TAG, "Switch to app: $newPkg (system=$isNewSystem)")
         }
     }
-}
 
-@Composable
-fun StatRow(
-    label: String,
-    value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+    private fun isSystemApp(pkg: String?): Boolean {
+        if (pkg.isNullOrBlank()) return false
+        if (SYSTEM_WHITELIST.contains(pkg)) return true
+        val pid = getPidsForPackage(pkg).firstOrNull() ?: return false
+        val uid = readUidFromProc(pid) ?: return false
+        return uid < 10000
+    }
+
+    // 修复：使用函数式方式避免非局部返回
+    private fun readUidFromProc(pid: Int): Int? {
+        val file = File("/proc/$pid/status")
+        if (!file.exists()) return null
+        return file.useLines { lines ->
+            lines.firstOrNull { it.startsWith("Uid:") }
+                ?.split(Regex("\\s+"))
+                ?.getOrNull(1)
+                ?.toIntOrNull()
         }
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.Medium
-        )
     }
-}
 
-// 辅助函数
-fun formatDuration(millis: Long): String {
-    val seconds = millis / 1000
-    val hours = seconds / 3600
-    val minutes = (seconds % 3600) / 60
-    val secs = seconds % 60
-
-    return when {
-        hours > 0 -> "${hours}h ${minutes}m"
-        minutes > 0 -> "${minutes}m ${secs}s"
-        else -> "${secs}s"
+    private fun getPidsForPackage(pkg: String): List<Int> {
+        return try {
+            val process = Runtime.getRuntime().exec("pgrep -f $pkg")
+            BufferedReader(InputStreamReader(process.inputStream)).readLines().mapNotNull { it.toIntOrNull() }
+        } catch (e: Exception) {
+            emptyList()
+        }
     }
-}
 
-fun getGpuModeName(mode: String): String {
-    return when (mode) {
-        "performance" -> "性能模式"
-        "power_saving" -> "节能模式"
-        "daily" -> "日常模式"
-        else -> "默认"
+    private fun freezePackage(pkg: String) {
+        try {
+            val pids = getPidsForPackage(pkg)
+            pids.forEach { pid ->
+                File(FROZEN_GROUP, "tasks").appendText("$pid\n")
+            }
+            Log.i(TAG, "FROZEN: $pkg (PIDs: $pids)")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to freeze $pkg", e)
+        }
     }
-}
 
-fun getCpuModeName(mode: String): String {
-    return when (mode) {
-        "performance" -> "性能模式"
-        "standby" -> "待机模式"
-        "daily" -> "日常模式"
-        else -> "默认"
+    private fun unfreezePackage(pkg: String) {
+        try {
+            val pids = getPidsForPackage(pkg)
+            pids.forEach { pid ->
+                File(THAW_GROUP, "tasks").appendText("$pid\n")
+            }
+            Log.i(TAG, "THAWED: $pkg")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to thaw $pkg", e)
+        }
+    }
+
+    private fun generateToken(): String {
+        val uptime = try { File("/proc/uptime").readText().substringBefore(" ") } catch (e: Exception) { null }
+        return "${uptime ?: System.currentTimeMillis()}.${System.currentTimeMillis()}"
+    }
+
+    // 修复后的 hasActiveWorker 函数
+    private fun hasActiveWorker(pkg: String): Boolean {
+        val workerDir = File(WORKER_DIR)
+        val files = workerDir.listFiles { _, name -> name.startsWith("${pkg}_") } ?: return false
+        return files.any { file ->
+            val pid = file.readText().toIntOrNull()
+            if (pid != null && File("/proc/$pid").exists()) {
+                true
+            } else {
+                file.delete()
+                false
+            }
+        }
+    }
+
+    private fun startWorker(pkg: String, token: String) {
+        val job = monitorScope.launch {
+            delay(FREEZE_DELAY * 1000)
+            val currentToken = File(STATE_DIR, "$pkg.token").takeIf { it.exists() }?.readText()
+            if (token == currentToken && !isSystemApp(pkg)) {
+                freezePackage(pkg)
+            } else {
+                Log.d(TAG, "Worker cancelled for $pkg")
+            }
+            freezeTasks.remove(pkg)
+        }
+        freezeTasks[pkg] = job
+    }
+
+    private fun getForegroundApp(): String? {
+        val cacheFile = File(FG_CACHE_FILE)
+        if (cacheFile.exists()) {
+            val cached = cacheFile.readText().trim()
+            if (cached.isNotBlank()) return cached
+        }
+
+        val windowOutput = try {
+            ProcessBuilder("dumpsys", "window").redirectErrorStream(true).start().inputStream.bufferedReader().readText()
+        } catch (e: Exception) { return null }
+
+        for (line in windowOutput.lines()) {
+            if (line.contains("mCurrentFocus") || line.contains("mFocusedApp")) {
+                val regex = Regex("u[0-9]+\\s+([a-zA-Z0-9.]+)")
+                val match = regex.find(line)
+                if (match != null) return match.groupValues[1]
+            }
+        }
+        return null
+    }
+
+    private fun writeFgCache(pkg: String?) {
+        if (pkg.isNullOrBlank()) return
+        File(FG_CACHE_FILE).writeText(pkg)
+        lastFgApp = pkg
+        lastFgCheckTime = System.currentTimeMillis() / 1000
+    }
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onDestroy() {
+        super.onDestroy()
+        monitorScope.cancel()
+        freezeTasks.values.forEach { it?.cancel() }
     }
 }
