@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)   // 新增：应用 Compose 编译器插件
 }
 
 android {
@@ -42,9 +43,7 @@ android {
         compose = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
-    }
+    // 移除 composeOptions 块，不再需要指定编译器版本
 
     packaging {
         resources {
