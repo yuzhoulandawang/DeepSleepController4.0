@@ -13,7 +13,7 @@ libsu = "5.2.2"
 junit = "4.13.2"
 junitExt = "1.2.1"
 espressoCore = "3.6.1"
-material = "1.12.0"                      # 新增：Material Components 版本
+material = "1.12.0"
 
 [libraries]
 # Core Android
