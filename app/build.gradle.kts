@@ -1,4 +1,3 @@
-
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -45,6 +44,11 @@ android {
         compose = true
     }
     
+    // 显式指定 Compose 编译器版本（与 Kotlin 1.9.22 兼容）
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.4"
+    }
+    
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -84,7 +88,7 @@ dependencies {
     implementation(libs.libsu.service)
     
     // Material Components for Android (提供 XML 主题)
-    implementation(libs.material)                // 新增
+    implementation(libs.material)
     
     // Testing
     testImplementation(libs.junit)
