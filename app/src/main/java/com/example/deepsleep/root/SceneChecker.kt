@@ -15,9 +15,6 @@ import com.example.deepsleep.model.WhitelistType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/**
- * 场景检查器 - 检查各种可能阻止深度睡眠的场景
- */
 class SceneChecker(
     private val context: Context,
     private val logRepository: LogRepository,
@@ -37,12 +34,8 @@ class SceneChecker(
     private suspend fun updateNetworkWhitelist() {
         val now = System.currentTimeMillis()
         if (now - lastWhitelistUpdate < whitelistCacheDuration) return
-
         try {
-            networkWhitelist = whitelistRepository.loadItems(
-                context,
-                WhitelistType.NETWORK
-            ).map { it.name }
+            networkWhitelist = whitelistRepository.loadItems(context, WhitelistType.NETWORK).map { it.name }
             lastWhitelistUpdate = now
             logRepository.appendLog(LogLevel.DEBUG, "SceneChecker", "网络白名单已更新，共 ${networkWhitelist.size} 个应用")
         } catch (e: Exception) {
@@ -50,86 +43,38 @@ class SceneChecker(
         }
     }
 
-    private fun isInNetworkWhitelist(packageName: String): Boolean {
-        return networkWhitelist.contains(packageName)
-    }
+    private fun isInNetworkWhitelist(packageName: String): Boolean = networkWhitelist.contains(packageName)
 
     suspend fun shouldBlockDeepSleep(settings: AppSettings): Boolean = withContext(Dispatchers.IO) {
         updateNetworkWhitelist()
-
         val blockedScenes = mutableListOf<String>()
 
-        if (settings.checkNetworkTraffic && isNetworkTrafficActive()) {
-            blockedScenes.add("流量活跃")
-            logRepository.appendLog(LogLevel.DEBUG, "SceneChecker", "检测到流量活跃")
-        }
-
-        if (settings.checkAudioPlayback && isAudioPlaying()) {
-            blockedScenes.add("音频播放")
-            logRepository.appendLog(LogLevel.DEBUG, "SceneChecker", "检测到音频播放")
-        }
-
-        if (settings.checkNavigation && isNavigationActive()) {
-            blockedScenes.add("导航应用")
-            logRepository.appendLog(LogLevel.DEBUG, "SceneChecker", "检测到导航应用")
-        }
-
-        if (settings.checkPhoneCall && isInPhoneCall()) {
-            blockedScenes.add("通话状态")
-            logRepository.appendLog(LogLevel.DEBUG, "SceneChecker", "检测到通话状态")
-        }
-
-        if (settings.checkNfcP2p && isNfcP2pActive()) {
-            blockedScenes.add("NFC/P2P")
-            logRepository.appendLog(LogLevel.DEBUG, "SceneChecker", "检测到 NFC/P2P 传输")
-        }
-
-        if (settings.checkWifiHotspot && isWifiHotspotEnabled()) {
-            blockedScenes.add("WiFi热点")
-            logRepository.appendLog(LogLevel.DEBUG, "SceneChecker", "检测到 WiFi 热点")
-        }
-
-        if (settings.checkUsbTethering && isUsbTetheringEnabled()) {
-            blockedScenes.add("USB网络共享")
-            logRepository.appendLog(LogLevel.DEBUG, "SceneChecker", "检测到 USB 网络共享")
-        }
-
-        if (settings.checkScreenCasting && isScreenCasting()) {
-            blockedScenes.add("投屏")
-            logRepository.appendLog(LogLevel.DEBUG, "SceneChecker", "检测到投屏")
-        }
-
-        if (settings.checkCharging && isCharging()) {
-            blockedScenes.add("充电状态")
-            logRepository.appendLog(LogLevel.DEBUG, "SceneChecker", "检测到充电状态")
-        }
+        if (settings.checkNetworkTraffic && isNetworkTrafficActive()) blockedScenes.add("流量活跃")
+        if (settings.checkAudioPlayback && isAudioPlaying()) blockedScenes.add("音频播放")
+        if (settings.checkNavigation && isNavigationActive()) blockedScenes.add("导航应用")
+        if (settings.checkPhoneCall && isInPhoneCall()) blockedScenes.add("通话状态")
+        if (settings.checkNfcP2p && isNfcP2pActive()) blockedScenes.add("NFC/P2P")
+        if (settings.checkWifiHotspot && isWifiHotspotEnabled()) blockedScenes.add("WiFi热点")
+        if (settings.checkUsbTethering && isUsbTetheringEnabled()) blockedScenes.add("USB网络共享")
+        if (settings.checkScreenCasting && isScreenCasting()) blockedScenes.add("投屏")
+        if (settings.checkCharging && isCharging()) blockedScenes.add("充电状态")
 
         if (blockedScenes.isNotEmpty()) {
             logRepository.appendLog(LogLevel.INFO, "SceneChecker", "深度睡眠被阻止: ${blockedScenes.joinToString(", ")}")
         }
-
         blockedScenes.isNotEmpty()
     }
 
-    // 以下检测函数改为 suspend，因为内部可能调用挂起函数
     private suspend fun isNetworkTrafficActive(): Boolean {
         return try {
             val activeNetwork = connectivityManager.activeNetworkInfo ?: return false
             if (!activeNetwork.isConnected) return false
-
             val runningAppsResult = RootCommander.exec("dumpsys activity processes | grep -E 'Record=\\{' | grep -v 'STOPPED'")
-            val runningPackages = runningAppsResult.out
-                .mapNotNull { line ->
-                    val match = Regex("([^/]+)/(\\w+)").find(line)
-                    match?.groupValues?.getOrNull(1)
-                }
-                .distinct()
-
-            // 简化：假设有流量（因为无法直接获取 rxBytes/txBytes）
-            // 这里暂时根据活跃包判断
+            val runningPackages = runningAppsResult.out.mapNotNull { line ->
+                Regex("([^/]+)/(\\w+)").find(line)?.groupValues?.getOrNull(1)
+            }.distinct()
             if (runningPackages.isNotEmpty()) {
-                val nonWhitelistedApps = runningPackages.filter { !isInNetworkWhitelist(it) }
-                return nonWhitelistedApps.isNotEmpty()
+                return runningPackages.any { !isInNetworkWhitelist(it) }
             }
             false
         } catch (e: Exception) {
@@ -140,9 +85,7 @@ class SceneChecker(
 
     private suspend fun isAudioPlaying(): Boolean {
         return try {
-            val isMusicActive = audioManager.isMusicActive
-            val musicVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-            isMusicActive && musicVolume > 0
+            audioManager.isMusicActive && audioManager.getStreamVolume(AudioManager.STREAM_MUSIC) > 0
         } catch (e: Exception) {
             logRepository.appendLog(LogLevel.ERROR, "SceneChecker", "检查音频播放失败: ${e.message}")
             false
@@ -151,15 +94,14 @@ class SceneChecker(
 
     private suspend fun isNavigationActive(): Boolean {
         return try {
-            val result = RootCommander.exec("dumpsys activity top | grep -E '(google|amap|mapnav|com.autonavi)' | grep -v 'STOPPED'")
-            result.out.isNotEmpty()
+            RootCommander.exec("dumpsys activity top | grep -E '(google|amap|mapnav|com.autonavi)' | grep -v 'STOPPED'").out.isNotEmpty()
         } catch (e: Exception) {
             logRepository.appendLog(LogLevel.ERROR, "SceneChecker", "检查导航应用失败: ${e.message}")
             false
         }
     }
 
-    private fun isInPhoneCall(): Boolean {
+    private suspend fun isInPhoneCall(): Boolean {   // 改为 suspend
         return try {
             val callState = telephonyManager.callState
             callState == TelephonyManager.CALL_STATE_OFFHOOK || callState == TelephonyManager.CALL_STATE_RINGING
@@ -171,8 +113,7 @@ class SceneChecker(
 
     private suspend fun isNfcP2pActive(): Boolean {
         return try {
-            val result = RootCommander.exec("dumpsys nfc | grep 'P2P' | grep -v 'disabled' | grep -v 'false'")
-            result.out.any { it.contains("P2P") && it.contains("true") }
+            RootCommander.exec("dumpsys nfc | grep 'P2P' | grep -v 'disabled' | grep -v 'false'").out.any { it.contains("P2P") && it.contains("true") }
         } catch (e: Exception) {
             logRepository.appendLog(LogLevel.ERROR, "SceneChecker", "检查 NFC P2P 失败: ${e.message}")
             false
@@ -181,8 +122,7 @@ class SceneChecker(
 
     private suspend fun isWifiHotspotEnabled(): Boolean {
         return try {
-            val result = RootCommander.exec("dumpsys connectivity | grep -i 'tethering'")
-            result.out.any { it.contains("tethering") }
+            RootCommander.exec("dumpsys connectivity | grep -i 'tethering'").out.any { it.contains("tethering") }
         } catch (e: Exception) {
             logRepository.appendLog(LogLevel.ERROR, "SceneChecker", "检查 WiFi 热点失败: ${e.message}")
             false
@@ -191,8 +131,7 @@ class SceneChecker(
 
     private suspend fun isUsbTetheringEnabled(): Boolean {
         return try {
-            val result = RootCommander.exec("dumpsys connectivity | grep -i 'usb' | grep -i 'rndis'")
-            result.out.any { it.contains("rndis") || it.contains("tethering") }
+            RootCommander.exec("dumpsys connectivity | grep -i 'usb' | grep -i 'rndis'").out.any { it.contains("rndis") || it.contains("tethering") }
         } catch (e: Exception) {
             logRepository.appendLog(LogLevel.ERROR, "SceneChecker", "检查 USB 网络共享失败: ${e.message}")
             false
@@ -201,21 +140,20 @@ class SceneChecker(
 
     private suspend fun isScreenCasting(): Boolean {
         return try {
-            val result1 = RootCommander.exec("dumpsys media.audio_flinger | grep -i 'hdmi'")
-            val result2 = RootCommander.exec("dumpsys display | grep -i 'cast'")
-            val result3 = RootCommander.exec("dumpsys connectivity | grep -i 'miracast'")
-            result1.out.any { it.contains("hdmi") } || result2.out.any { it.contains("cast") } || result3.out.any { it.contains("miracast") }
+            val r1 = RootCommander.exec("dumpsys media.audio_flinger | grep -i 'hdmi'")
+            val r2 = RootCommander.exec("dumpsys display | grep -i 'cast'")
+            val r3 = RootCommander.exec("dumpsys connectivity | grep -i 'miracast'")
+            r1.out.any { it.contains("hdmi") } || r2.out.any { it.contains("cast") } || r3.out.any { it.contains("miracast") }
         } catch (e: Exception) {
             logRepository.appendLog(LogLevel.ERROR, "SceneChecker", "检查投屏失败: ${e.message}")
             false
         }
     }
 
-    private fun isCharging(): Boolean {
+    private suspend fun isCharging(): Boolean {   // 改为 suspend
         return try {
-            val chargingStatus = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
-            chargingStatus == BatteryManager.BATTERY_STATUS_CHARGING ||
-                    chargingStatus == BatteryManager.BATTERY_STATUS_FULL
+            val status = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS)
+            status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
         } catch (e: Exception) {
             logRepository.appendLog(LogLevel.ERROR, "SceneChecker", "检查充电状态失败: ${e.message}")
             false
@@ -224,9 +162,7 @@ class SceneChecker(
 
     suspend fun getBlockingScenes(settings: AppSettings): List<String> = withContext(Dispatchers.IO) {
         updateNetworkWhitelist()
-
         val scenes = mutableListOf<String>()
-
         if (settings.checkNetworkTraffic && isNetworkTrafficActive()) scenes.add("流量活跃")
         if (settings.checkAudioPlayback && isAudioPlaying()) scenes.add("音频播放")
         if (settings.checkNavigation && isNavigationActive()) scenes.add("导航应用")
@@ -236,7 +172,6 @@ class SceneChecker(
         if (settings.checkUsbTethering && isUsbTetheringEnabled()) scenes.add("USB网络共享")
         if (settings.checkScreenCasting && isScreenCasting()) scenes.add("投屏")
         if (settings.checkCharging && isCharging()) scenes.add("充电状态")
-
         scenes
     }
 }
