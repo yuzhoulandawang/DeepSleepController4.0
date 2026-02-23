@@ -22,50 +22,62 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # ==========1 彻底清理环境，确保无缓存残留 ==========
-      - name: 🧹 Wipe Gradle caches and warm up Kotlin DSL
+      # ========== 环境清理 ==========
+      - name: 🧹 Wipe Gradle caches and warm up
         run: |
           ./gradlew --stop
           rm -rf ~/.gradle/caches/
           ./gradlew help --stacktrace
 
-      # ========== 诊断阶段 ==========
+      # ========== 收集环境信息 ==========
       - name: 📋 Collect environment info
+        id: env_info
         run: |
           echo "### System Info" >> $GITHUB_STEP_SUMMARY
           echo "- Java: $(java -version 2>&1 | head -1)" >> $GITHUB_STEP_SUMMARY
           echo "- Gradle Wrapper version: $(./gradlew --version | grep "Gradle ")" >> $GITHUB_STEP_SUMMARY
           echo "- Kotlin: $(./gradlew --version | grep "Kotlin:")" >> $GITHUB_STEP_SUMMARY
-
-      - name: 🔍 Check Gradle & AGP compatibility
-        run: |
-          GRADLE_VERSION=$(grep distributionUrl gradle/wrapper/gradle-wrapper.properties | grep -oE 'gradle-[0-9.]+' | cut -d- -f2)
-          AGP_VERSION=$(grep -E "com.android.application.*version" build.gradle.kts | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
-          echo "### Compatibility Check" >> $GITHUB_STEP_SUMMARY
-          echo "- Gradle version: $GRADLE_VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "- AGP version: $AGP_VERSION" >> $GITHUB_STEP_SUMMARY
-          echo "⚠️ If you encounter issues, ensure Gradle and AGP versions are compatible." >> $GITHUB_STEP_SUMMARY
-
-      - name: 📄 Show app/build.gradle.kts content (head)
-        run: head -50 app/build.gradle.kts
-
-      - name: 🔧 Ensure compileSdk in app/build.gradle.kts (optional)
-        run: |
-          if ! grep -q "compileSdk = 35" app/build.gradle.kts; then
-            echo "⚠️ compileSdk not found. You may need to add 'compileSdk = 35' manually." >> $GITHUB_STEP_SUMMARY
+          
+          # 从 version catalog 读取 AGP 和 Kotlin 版本（如果存在）
+          if [ -f gradle/libs.versions.toml ]; then
+            AGP_VERSION=$(grep -E "^agp" gradle/libs.versions.toml | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
+            KOTLIN_VERSION=$(grep -E "^kotlin" gradle/libs.versions.toml | head -1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || echo "unknown")
           else
-            echo "✅ compileSdk found." >> $GITHUB_STEP_SUMMARY
+            AGP_VERSION="unknown (no version catalog)"
+            KOTLIN_VERSION="unknown (no version catalog)"
           fi
+          echo "### Compatibility Check" >> $GITHUB_STEP_SUMMARY
+          echo "- AGP version (catalog): $AGP_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "- Kotlin version (catalog): $KOTLIN_VERSION" >> $GITHUB_STEP_SUMMARY
+          
+          # 检查 Gradle 与 AGP 兼容性（简单提示）
+          GRADLE_VERSION=$(grep distributionUrl gradle/wrapper/gradle-wrapper.properties | grep -oE 'gradle-[0-9.]+' | cut -d- -f2)
+          echo "- Gradle version: $GRADLE_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️  Ensure Gradle and AGP versions are compatible: https://developer.android.com/studio/releases/gradle-plugin#updating-gradle" >> $GITHUB_STEP_SUMMARY
 
-      # ========== 刷新依赖（清理后无需重复） ==========
+      - name: 📄 Show key config files
+        run: |
+          echo "### app/build.gradle.kts (first 20 lines)" >> $GITHUB_STEP_SUMMARY
+          head -20 app/build.gradle.kts >> $GITHUB_STEP_SUMMARY
+          echo "### gradle/libs.versions.toml" >> $GITHUB_STEP_SUMMARY
+          cat gradle/libs.versions.toml >> $GITHUB_STEP_SUMMARY
+
+      - name: 📱 List installed Android SDK components
+        run: |
+          echo "### Installed SDK Packages" >> $GITHUB_STEP_SUMMARY
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --list_installed >> $GITHUB_STEP_SUMMARY
+
+      # ========== 刷新依赖 ==========
       - name: 🧹 Clean and refresh dependencies
         run: ./gradlew clean --refresh-dependencies
 
-      # ========== 诊断：确认 JavaPoet 版本 ==========
-      - name: 🔎 Verify JavaPoet version
+      # ========== 诊断：依赖洞察 ==========
+      - name: 🔎 Dependency insights (JavaPoet, KSP, Compose)
         run: |
-          echo "### JavaPoet version (debug compile classpath)" >> $GITHUB_STEP_SUMMARY
-          ./gradlew -q app:dependencies --configuration debugCompileClasspath | grep javapoet | head -5 >> $GITHUB_STEP_SUMMARY || echo "Not found" >> $GITHUB_STEP_SUMMARY
+          echo "### JavaPoet version insight" >> $GITHUB_STEP_SUMMARY
+          ./gradlew app:dependencyInsight --dependency javapoet --configuration debugCompileClasspath >> $GITHUB_STEP_SUMMARY || true
+          echo "### KSP version insight" >> $GITHUB_STEP_SUMMARY
+          ./gradlew app:dependencyInsight --dependency ksp --configuration debugCompileClasspath >> $GITHUB_STEP_SUMMARY || true
 
       # ========== 首次构建尝试 ==========
       - name: 🏗️ First build attempt
@@ -74,35 +86,26 @@ jobs:
           ./gradlew assembleDebug --stacktrace 2>&1 | tee build.log
         continue-on-error: true
 
-      # ========== 检测是否需要自动修复（Hilt/JavaPoet 冲突） ==========
-      - name: 🔎 Check if Hilt/JavaPoet conflict fix is needed
-        id: check_fix
-        run: |
-          if grep -q "java.lang.NoSuchMethodError.*javapoet\|com.squareup.javapoet.ClassName.canonicalName" build.log; then
-            echo "need_fix=true" >> $GITHUB_OUTPUT
-          else
-            echo "need_fix=false" >> $GITHUB_OUTPUT
-          fi
-
-      # ========== 智能错误处理：强制清理缓存并重试（您已手动添加 resolutionStrategy，无需修改文件） ==========
-      - name: 🛠️ Auto-fix for Hilt/JavaPoet conflict
-        if: steps.check_fix.outputs.need_fix == 'true'
-        run: |
-          echo "Detected Hilt/JavaPoet conflict. Forcing cache cleanup and retry..."
-          ./gradlew --stop
-          rm -rf ~/.gradle/caches/
-          ./gradlew clean assembleDebug --stacktrace 2>&1 | tee build_fixed.log
-          cp build_fixed.log build.log
-        continue-on-error: true
-
-      # ========== 输出 JavaPoet 的详细依赖信息（诊断用） ==========
-      - name: 🔍 Debug JavaPoet version (dependency insight)
+      # ========== 检测特定冲突（仅输出诊断，不自动修复） ==========
+      - name: 🔎 Check for Hilt/JavaPoet conflict
         if: always()
         run: |
-          echo "### JavaPoet version insight" >> $GITHUB_STEP_SUMMARY
-          ./gradlew app:dependencyInsight --dependency javapoet --configuration debugCompileClasspath >> $GITHUB_STEP_SUMMARY || true
+          if grep -q "java.lang.NoSuchMethodError.*javapoet\|com.squareup.javapoet.ClassName.canonicalName" build.log; then
+            echo "### ⚠️ Hilt/JavaPoet Conflict Detected" >> $GITHUB_STEP_SUMMARY
+            echo "This is often caused by mismatched versions of Room, Hilt, or other annotation processors." >> $GITHUB_STEP_SUMMARY
+            echo "Suggested fix: Add a dependency constraint in app/build.gradle.kts:" >> $GITHUB_STEP_SUMMARY
+            echo '```kotlin' >> $GITHUB_STEP_SUMMARY
+            echo 'configurations.all {' >> $GITHUB_STEP_SUMMARY
+            echo '    resolutionStrategy {' >> $GITHUB_STEP_SUMMARY
+            echo '        force "com.squareup:javapoet:1.13.0"' >> $GITHUB_STEP_SUMMARY
+            echo '    }' >> $GITHUB_STEP_SUMMARY
+            echo '}' >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ No Hilt/JavaPoet conflict detected." >> $GITHUB_STEP_SUMMARY
+          fi
 
-      # ========== 分类错误报告（基于最终的 build.log） ==========
+      # ========== 生成分类错误报告 ==========
       - name: 📊 Generate categorized error report
         if: always()
         run: |
@@ -118,7 +121,7 @@ jobs:
               echo "### 📊 Error Categories" >> final-report.md
               
               declare -A error_patterns=(
-                ["KSP/Kotlin版本不兼容"]="ksp.*is too new for kotlin"
+                ["KSP/Kotlin版本不兼容"]="ksp.*is too new for kotlin|Kotlin version .* is not compatible with KSP"
                 ["挂起函数调用错误"]="Suspend function.*should be called only from a coroutine"
                 ["未解决的引用"]="Unresolved reference"
                 ["类型不匹配"]="type mismatch"
@@ -129,18 +132,21 @@ jobs:
                 ["资源缺失"]="resource.*not found"
                 ["依赖冲突"]="Conflict|dependency convergence"
                 ["Hilt/JavaPoet冲突"]="java.lang.NoSuchMethodError.*javapoet|com.squareup.javapoet.ClassName.canonicalName"
+                ["Kotlin版本不匹配"]="This version .* is not supported by the Kotlin plugin"
                 ["其他错误"]="^e:|^error:|FAILURE:"
               )
               
               for category in "${!error_patterns[@]}"; do
                 pattern="${error_patterns[$category]}"
+                # 使用 grep -E 并统计行数
                 count=$(grep -E "$pattern" build.log | wc -l)
                 if [ "$count" -gt 0 ]; then
                   echo "- **$category**: $count occurrences" >> final-report.md
                   echo '  ```' >> final-report.md
-                  grep -E "$pattern" build.log | head -3 | sed 's/^/  /' >> final-report.md
-                  if [ "$count" -gt 3 ]; then
-                    echo "  ... (and $((count-3)) more)" >> final-report.md
+                  # 显示前3个匹配的完整行（保留上下文）
+                  grep -E "$pattern" build.log | head -5 | sed 's/^/  /' >> final-report.md
+                  if [ "$count" -gt 5 ]; then
+                    echo "  ... (and $((count-5)) more)" >> final-report.md
                   fi
                   echo '  ```' >> final-report.md
                 fi
@@ -160,7 +166,7 @@ jobs:
           echo "- Gradle: $(./gradlew --version | grep "Gradle ")" >> final-report.md
           echo "- Kotlin: $(./gradlew --version | grep "Kotlin:")" >> final-report.md
 
-      # ========== 上传所有产物 ==========
+      # ========== 上传所有诊断产物 ==========
       - name: 📤 Upload diagnostic artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -168,14 +174,15 @@ jobs:
           name: diagnostic-reports
           path: |
             build.log
-            build_fixed.log
             final-report.md
             app/build/reports/
           if-no-files-found: ignore
 
+      # ========== 上传 APK（如果存在） ==========
       - name: 📦 Upload APK (if built)
-        if: success()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: ignore
