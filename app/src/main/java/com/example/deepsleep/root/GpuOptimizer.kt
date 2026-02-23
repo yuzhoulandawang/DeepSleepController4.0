@@ -120,7 +120,7 @@ object GpuOptimizer {
                     return i
                 }
             }
-            LogRepository.appendLog(LogLevel.WARN, "GpuOptimizer", "未找到 GPU 温度传感器")
+            LogRepository.appendLog(LogLevel.WARNING, "GpuOptimizer", "未找到 GPU 温度传感器")  // 修复点：WARN -> WARNING
             null
         } catch (e: Exception) {
             LogRepository.appendLog(LogLevel.ERROR, "GpuOptimizer", "查找 GPU 温度传感器失败: ${e.message}")
