@@ -1,7 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)   // 新增：应用 Compose 编译器插件
+    alias(libs.plugins.kotlin.compose)
+    id("kotlin-parcelize")   // 新增
 }
 
 android {
@@ -42,8 +43,6 @@ android {
     buildFeatures {
         compose = true
     }
-
-    // 移除 composeOptions 块，不再需要指定编译器版本
 
     packaging {
         resources {
