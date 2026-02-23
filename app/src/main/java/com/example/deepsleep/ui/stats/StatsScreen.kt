@@ -13,7 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.deepsleep.model.Statistics
-// 关键导入：确保有 Cpu 图标
+// 关键导入
 import androidx.compose.material.icons.filled.Cpu
 
 @OptIn(ExperimentalMaterial3Api::class)
