@@ -1,6 +1,8 @@
 package com.example.deepsleep.root
 
 import android.util.Log
+import com.example.deepsleep.data.LogRepository
+import com.example.deepsleep.model.LogLevel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -10,16 +12,11 @@ import java.io.File
  * 通过调整 OOM 评分来管理后台进程
  */
 object ProcessSuppressor {
-    
+
     private const val TAG = "ProcessSuppressor"
 
     /**
      * 设置进程的 OOM 评分
-     * @param packageName 包名
-     * @param score OOM 评分 (-1000 到 1000)
-     *  -1000: 最容易被杀死
-     *  0: 正常优先级
-     *  1000: 最难被杀死
      */
     suspend fun setOomScore(packageName: String, score: Int): Boolean = withContext(Dispatchers.IO) {
         try {
@@ -41,12 +38,12 @@ object ProcessSuppressor {
 
             val success = successCount > 0
             if (success) {
-                LogRepository.info(TAG, "Set OOM score $score for $packageName ($successCount/$pids.size PIDs)")
+                LogRepository.appendLog(LogLevel.INFO, TAG, "Set OOM score $score for $packageName ($successCount/${pids.size} PIDs)")
             }
             return@withContext success
         } catch (e: Exception) {
             Log.e(TAG, "Failed to set OOM score for $packageName", e)
-            LogRepository.error(TAG, "Failed to set OOM score for $packageName: ${e.message}")
+            LogRepository.appendLog(LogLevel.ERROR, TAG, "Failed to set OOM score for $packageName: ${e.message}")
             return@withContext false
         }
     }
@@ -58,25 +55,22 @@ object ProcessSuppressor {
         try {
             val suppressedCount = mutableListOf<String>()
 
-            // 获取所有用户应用进程
             File("/proc").listFiles { file ->
                 file.isDirectory && file.name.matches(Regex("\\d+"))
             }?.forEach { procDir ->
                 val pid = procDir.name.toIntOrNull() ?: return@forEach
                 val cmdlineFile = File(procDir, "cmdline")
-                
+
                 if (cmdlineFile.exists()) {
                     val cmdline = cmdlineFile.readText().trim().substringBefore(" ")
-                    // 跳过系统应用和关键服务
                     if (cmdline.isNotBlank() && 
                         !cmdline.startsWith("com.android") &&
                         !cmdline.contains("deepsleep") &&
                         !cmdline.contains("systemui")) {
-                        
+
                         val oomFile = File(procDir, "oom_score_adj")
                         if (oomFile.exists()) {
                             val currentScore = oomFile.readText().toIntOrNull() ?: 0
-                            // 只压制评分高于目标值的进程
                             if (currentScore > score) {
                                 oomFile.writeText(score.toString())
                                 suppressedCount.add(cmdline)
@@ -86,11 +80,11 @@ object ProcessSuppressor {
                 }
             }
 
-            LogRepository.info(TAG, "Suppressed ${suppressedCount.size} background apps with OOM score $score")
+            LogRepository.appendLog(LogLevel.INFO, TAG, "Suppressed ${suppressedCount.size} background apps with OOM score $score")
             return@withContext suppressedCount.size
         } catch (e: Exception) {
             Log.e(TAG, "Failed to suppress background apps", e)
-            LogRepository.error(TAG, "Failed to suppress background apps: ${e.message}")
+            LogRepository.appendLog(LogLevel.ERROR, TAG, "Failed to suppress background apps: ${e.message}")
             return@withContext 0
         }
     }
@@ -100,14 +94,14 @@ object ProcessSuppressor {
      */
     private fun getPackagePids(packageName: String): List<Int> {
         val pids = mutableListOf<Int>()
-        
+
         try {
             File("/proc").listFiles { file ->
                 file.isDirectory && file.name.matches(Regex("\\d+"))
             }?.forEach { procDir ->
                 val pid = procDir.name.toIntOrNull() ?: return@forEach
                 val cmdlineFile = File(procDir, "cmdline")
-                
+
                 if (cmdlineFile.exists()) {
                     val cmdline = cmdlineFile.readText().trim().substringBefore(" ")
                     if (cmdline == packageName) {
@@ -118,7 +112,7 @@ object ProcessSuppressor {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to get PIDs for $packageName", e)
         }
-        
+
         return pids
     }
 
