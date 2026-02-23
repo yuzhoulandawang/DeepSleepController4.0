@@ -13,6 +13,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.deepsleep.model.Statistics
+// 必须导入 Cpu 图标
+import androidx.compose.material.icons.filled.Cpu
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,7 +123,7 @@ fun StatsScreen(
                         StatRow(
                             label = "CPU 绑定次数",
                             value = "${statistics.cpuBindingCount}",
-                            icon = Icons.Default.Memory   // 修复点：Cpu 改为 Memory
+                            icon = Icons.Default.Cpu   // 必须用 Icons.Default.Cpu
                         )
                         StatRow(
                             label = "当前 CPU 模式",
