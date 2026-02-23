@@ -180,16 +180,15 @@ class FreezerService : Service() {
         return uid < 10000
     }
 
-    // 修复：使用函数式方式避免非局部返回
+    // ✅ 修复点：使用 firstOrNull 避免非局部返回
     private fun readUidFromProc(pid: Int): Int? {
         val file = File("/proc/$pid/status")
         if (!file.exists()) return null
-        return file.useLines { lines ->
-            lines.firstOrNull { it.startsWith("Uid:") }
-                ?.split(Regex("\\s+"))
-                ?.getOrNull(1)
-                ?.toIntOrNull()
-        }
+        return file.readLines()
+            .firstOrNull { it.startsWith("Uid:") }
+            ?.split(Regex("\\s+"))
+            ?.getOrNull(1)
+            ?.toIntOrNull()
     }
 
     private fun getPidsForPackage(pkg: String): List<Int> {
@@ -230,7 +229,6 @@ class FreezerService : Service() {
         return "${uptime ?: System.currentTimeMillis()}.${System.currentTimeMillis()}"
     }
 
-    // 修复后的 hasActiveWorker 函数
     private fun hasActiveWorker(pkg: String): Boolean {
         val workerDir = File(WORKER_DIR)
         val files = workerDir.listFiles { _, name -> name.startsWith("${pkg}_") } ?: return false
