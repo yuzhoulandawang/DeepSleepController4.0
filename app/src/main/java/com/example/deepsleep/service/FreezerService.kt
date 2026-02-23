@@ -230,17 +230,19 @@ class FreezerService : Service() {
         return "${uptime ?: System.currentTimeMillis()}.${System.currentTimeMillis()}"
     }
 
+    // 修复：使用 any 避免非局部返回
     private fun hasActiveWorker(pkg: String): Boolean {
         val workerDir = File(WORKER_DIR)
-        workerDir.listFiles { _, name -> name.startsWith("${pkg}_") }?.forEach { file ->
+        val files = workerDir.listFiles { _, name -> name.startsWith("${pkg}_") } ?: return false
+        return files.any { file ->
             val pid = file.readText().toIntOrNull()
             if (pid != null && File("/proc/$pid").exists()) {
-                return true
+                true
             } else {
                 file.delete()
+                false
             }
         }
-        return false
     }
 
     private fun startWorker(pkg: String, token: String) {
