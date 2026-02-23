@@ -10,7 +10,6 @@ object GpuOptimizer {
 
     private const val KGSL_BASE = "/sys/class/kgsl/kgsl-3d0"
 
-    // GPU 节流控制
     suspend fun setThrottling(enabled: Boolean): Boolean {
         return try {
             val value = if (enabled) "1" else "0"
@@ -23,7 +22,6 @@ object GpuOptimizer {
         }
     }
 
-    // 总线分割
     suspend fun setBusSplit(enabled: Boolean): Boolean {
         return try {
             val value = if (enabled) "1" else "0"
@@ -36,7 +34,6 @@ object GpuOptimizer {
         }
     }
 
-    // 空闲定时器（毫秒）
     suspend fun setIdleTimer(ms: Int): Boolean {
         return try {
             RootCommander.exec("echo $ms > $KGSL_BASE/idle_timer")
@@ -48,7 +45,6 @@ object GpuOptimizer {
         }
     }
 
-    // GPU 最大频率（Hz）
     suspend fun setMaxGpuClk(hz: Long): Boolean {
         return try {
             RootCommander.exec("echo $hz > $KGSL_BASE/max_gpuclk")
@@ -60,7 +56,6 @@ object GpuOptimizer {
         }
     }
 
-    // 热功率等级
     suspend fun setThermalPwrLevel(level: Int): Boolean {
         return try {
             RootCommander.exec("echo $level > $KGSL_BASE/thermal_pwrlevel")
@@ -72,7 +67,6 @@ object GpuOptimizer {
         }
     }
 
-    // 最小频率（Hz）- 通过 devfreq
     suspend fun setMinFreq(hz: Long): Boolean {
         return try {
             RootCommander.exec("echo $hz > /sys/class/devfreq/kgsl-3d0/min_freq")
@@ -84,7 +78,6 @@ object GpuOptimizer {
         }
     }
 
-    // 最大频率（Hz）- 通过 devfreq
     suspend fun setMaxFreq(hz: Long): Boolean {
         return try {
             RootCommander.exec("echo $hz > /sys/class/devfreq/kgsl-3d0/max_freq")
@@ -96,7 +89,6 @@ object GpuOptimizer {
         }
     }
 
-    // 设置温度触发点（毫度）
     suspend fun setTripPointTemp(zoneId: Int, temp: Int): Boolean {
         return try {
             RootCommander.exec("echo $temp > /sys/class/thermal/thermal_zone$zoneId/trip_point_0_temp")
@@ -108,7 +100,6 @@ object GpuOptimizer {
         }
     }
 
-    // 设置温度滞后（毫度）
     suspend fun setTripPointHyst(zoneId: Int, hyst: Int): Boolean {
         return try {
             RootCommander.exec("echo $hyst > /sys/class/thermal/thermal_zone$zoneId/trip_point_0_hyst")
@@ -120,11 +111,10 @@ object GpuOptimizer {
         }
     }
 
-    // 查找 GPU 温度传感器的 thermal_zone
     suspend fun findGpuThermalZone(): Int? {
         return try {
             for (i in 0..50) {
-                val type = RootCommander.exec("cat /sys/class/thermal/thermal_zone$i/type 2>/dev/null").trim()
+                val type = RootCommander.exec("cat /sys/class/thermal/thermal_zone$i/type 2>/dev/null").out.joinToString("").trim()
                 if (type.contains("gpu", ignoreCase = true)) {
                     LogRepository.appendLog(LogLevel.INFO, "GpuOptimizer", "找到 GPU 温度传感器: thermal_zone$i")
                     return i
@@ -138,36 +128,20 @@ object GpuOptimizer {
         }
     }
 
-    // 应用性能优化模式
     suspend fun applyPerformanceMode(): Boolean {
         var success = true
-
-        // 启用 GPU 节流
         success = success && setThrottling(true)
-
-        // 启用总线分割
         success = success && setBusSplit(true)
-
-        // 设置空闲定时器为 50ms
         success = success && setIdleTimer(50)
-
-        // 设置最大 GPU 频率为 310MHz
         success = success && setMaxGpuClk(310000000)
-
-        // 设置热功率等级为 5
         success = success && setThermalPwrLevel(5)
-
-        // 设置最小频率为 155MHz
         success = success && setMinFreq(155000000)
-
-        // 设置最大频率为 310MHz
         success = success && setMaxFreq(310000000)
 
-        // 设置温度触发点和滞后
         val gpuZone = findGpuThermalZone()
         if (gpuZone != null) {
-            success = success && setTripPointTemp(gpuZone, 55000)  // 55°C
-            success = success && setTripPointHyst(gpuZone, 5000)   // 5°C
+            success = success && setTripPointTemp(gpuZone, 55000)
+            success = success && setTripPointHyst(gpuZone, 5000)
         }
 
         LogRepository.appendLog(
@@ -179,36 +153,20 @@ object GpuOptimizer {
         return success
     }
 
-    // 应用节能优化模式
     suspend fun applyPowerSavingMode(): Boolean {
         var success = true
-
-        // 禁用 GPU 节流
         success = success && setThrottling(false)
-
-        // 禁用总线分割
         success = success && setBusSplit(false)
-
-        // 设置空闲定时器为 100ms
         success = success && setIdleTimer(100)
-
-        // 设置最大 GPU 频率为 200MHz
         success = success && setMaxGpuClk(200000000)
-
-        // 设置热功率等级为 8
         success = success && setThermalPwrLevel(8)
-
-        // 设置最小频率为 100MHz
         success = success && setMinFreq(100000000)
-
-        // 设置最大频率为 200MHz
         success = success && setMaxFreq(200000000)
 
-        // 设置温度触发点和滞后
         val gpuZone = findGpuThermalZone()
         if (gpuZone != null) {
-            success = success && setTripPointTemp(gpuZone, 45000)  // 45°C
-            success = success && setTripPointHyst(gpuZone, 3000)   // 3°C
+            success = success && setTripPointTemp(gpuZone, 45000)
+            success = success && setTripPointHyst(gpuZone, 3000)
         }
 
         LogRepository.appendLog(
@@ -220,36 +178,20 @@ object GpuOptimizer {
         return success
     }
 
-    // 恢复默认设置
     suspend fun applyDefaultMode(): Boolean {
         var success = true
-
-        // 启用 GPU 节流
         success = success && setThrottling(true)
-
-        // 启用总线分割
         success = success && setBusSplit(true)
-
-        // 设置空闲定时器为 50ms
         success = success && setIdleTimer(50)
-
-        // 设置最大 GPU 频率为 310MHz
         success = success && setMaxGpuClk(310000000)
-
-        // 设置热功率等级为 5
         success = success && setThermalPwrLevel(5)
-
-        // 设置最小频率为 155MHz
         success = success && setMinFreq(155000000)
-
-        // 设置最大频率为 310MHz
         success = success && setMaxFreq(310000000)
 
-        // 设置温度触发点和滞后
         val gpuZone = findGpuThermalZone()
         if (gpuZone != null) {
-            success = success && setTripPointTemp(gpuZone, 55000)  // 55°C
-            success = success && setTripPointHyst(gpuZone, 5000)   // 5°C
+            success = success && setTripPointTemp(gpuZone, 55000)
+            success = success && setTripPointHyst(gpuZone, 5000)
         }
 
         LogRepository.appendLog(
@@ -261,10 +203,9 @@ object GpuOptimizer {
         return success
     }
 
-    // 获取当前 GPU 频率
     suspend fun getCurrentFreq(): Long {
         return try {
-            val result = RootCommander.exec("cat /sys/class/devfreq/kgsl-3d0/cur_freq").trim()
+            val result = RootCommander.exec("cat /sys/class/devfreq/kgsl-3d0/cur_freq").out.joinToString("").trim()
             result.toLongOrNull() ?: 0L
         } catch (e: Exception) {
             LogRepository.appendLog(LogLevel.ERROR, "GpuOptimizer", "获取当前 GPU 频率失败: ${e.message}")
@@ -272,12 +213,11 @@ object GpuOptimizer {
         }
     }
 
-    // 获取 GPU 温度
     suspend fun getGpuTemperature(): Int {
         return try {
             val gpuZone = findGpuThermalZone()
             if (gpuZone != null) {
-                val result = RootCommander.exec("cat /sys/class/thermal/thermal_zone$gpuZone/temp").trim()
+                val result = RootCommander.exec("cat /sys/class/thermal/thermal_zone$gpuZone/temp").out.joinToString("").trim()
                 result.toIntOrNull() ?: 0
             } else {
                 0
