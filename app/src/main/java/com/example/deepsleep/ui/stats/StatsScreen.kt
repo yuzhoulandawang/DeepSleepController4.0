@@ -9,15 +9,39 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.deepsleep.model.Statistics
 
-/**
- * 统计数据页面
- */
+// 确保导入缺失的图标
+import androidx.compose.material.icons.filled.AcUnit
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.Cpu
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Games
+import androidx.compose.material.icons.filled.Memory
+import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Radar
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.SportsEsports
+import androidx.compose.material.icons.filled.SwapVert
+import androidx.compose.material.icons.filled.Thermostat
+import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.TrendingDown
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.Tune
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsScreen(
@@ -25,7 +49,7 @@ fun StatsScreen(
     viewModel: StatsViewModel = viewModel()
 ) {
     val statistics by viewModel.statistics.collectAsState()
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -50,7 +74,6 @@ fun StatsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 总体概览卡片
             item {
                 StatsCard(
                     title = "📊 优化概览",
@@ -82,8 +105,7 @@ fun StatsScreen(
                     }
                 }
             }
-            
-            // GPU 优化统计
+
             item {
                 StatsCard(
                     title = "🎮 GPU 优化",
@@ -115,8 +137,7 @@ fun StatsScreen(
                     }
                 }
             }
-            
-            // CPU 优化统计
+
             item {
                 StatsCard(
                     title = "🖥️ CPU 优化",
@@ -143,8 +164,7 @@ fun StatsScreen(
                     }
                 }
             }
-            
-            // 进程压制统计
+
             item {
                 StatsCard(
                     title = "🔧 进程压制",
@@ -176,8 +196,7 @@ fun StatsScreen(
                     }
                 }
             }
-            
-            // 应用冻结统计
+
             item {
                 StatsCard(
                     title = "❄️ 应用冻结",
@@ -209,8 +228,7 @@ fun StatsScreen(
                     }
                 }
             }
-            
-            // 场景检测统计
+
             item {
                 StatsCard(
                     title = "🎯 场景检测",
@@ -325,7 +343,7 @@ fun formatDuration(millis: Long): String {
     val hours = seconds / 3600
     val minutes = (seconds % 3600) / 60
     val secs = seconds % 60
-    
+
     return when {
         hours > 0 -> "${hours}h ${minutes}m"
         minutes > 0 -> "${minutes}m ${secs}s"
