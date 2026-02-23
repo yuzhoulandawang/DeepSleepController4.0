@@ -156,7 +156,7 @@ class FreezerService : Service() {
             unfreezePackage(newPkg)
 
             if (ENABLE_FREEZER && !currentFgApp.isNullOrBlank() && !currentIsSystem) {
-                val fgApp = currentFgApp  // 局部变量解决智能转换问题
+                val fgApp = currentFgApp
                 if (fgApp != null && !hasActiveWorker(fgApp)) {
                     val oldToken = generateToken()
                     tokenMap[fgApp] = oldToken
@@ -205,7 +205,7 @@ class FreezerService : Service() {
         try {
             val pids = getPidsForPackage(pkg)
             pids.forEach { pid ->
-                File(FROZEN_GROUP, "tasks").appendText("$pid\\n")
+                File(FROZEN_GROUP, "tasks").appendText("$pid\n")
             }
             Log.i(TAG, "FROZEN: $pkg (PIDs: $pids)")
         } catch (e: Exception) {
@@ -217,7 +217,7 @@ class FreezerService : Service() {
         try {
             val pids = getPidsForPackage(pkg)
             pids.forEach { pid ->
-                File(THAW_GROUP, "tasks").appendText("$pid\\n")
+                File(THAW_GROUP, "tasks").appendText("$pid\n")
             }
             Log.i(TAG, "THAWED: $pkg")
         } catch (e: Exception) {
@@ -234,7 +234,11 @@ class FreezerService : Service() {
         val workerDir = File(WORKER_DIR)
         workerDir.listFiles { _, name -> name.startsWith("${pkg}_") }?.forEach { file ->
             val pid = file.readText().toIntOrNull()
-            if (pid != null && File("/proc/$pid").exists()) return true else file.delete()
+            if (pid != null && File("/proc/$pid").exists()) {
+                return true
+            } else {
+                file.delete()
+            }
         }
         return false
     }
