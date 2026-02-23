@@ -230,7 +230,6 @@ class FreezerService : Service() {
         return "${uptime ?: System.currentTimeMillis()}.${System.currentTimeMillis()}"
     }
 
-    // 修复后的 hasActiveWorker 函数
     private fun hasActiveWorker(pkg: String): Boolean {
         val workerDir = File(WORKER_DIR)
         val files = workerDir.listFiles { _, name -> name.startsWith("${pkg}_") } ?: return false
