@@ -12,7 +12,7 @@ import java.io.File
  * 统一管理 CPU 和 GPU 优化策略
  */
 object OptimizationManager {
-    
+
     private const val TAG = "OptimizationManager"
 
     enum class PerformanceMode {
@@ -108,11 +108,20 @@ object OptimizationManager {
 
         var allSuccess = true
 
-        val (throttling, busSplit, forceClkOn, forceRailOn, forceNoNap, forceBusOn, idleTimer, thermalPwrlevel) = when (mode) {
+        // 修复：分别赋值，避免解构超长
+        val params = when (mode) {
             PerformanceMode.PERFORMANCE -> arrayOf(0, 0, 1, 1, 1, 1, 10, 0)
             PerformanceMode.DAILY -> arrayOf(1, 1, 0, 0, 0, 0, 50, 5)
             PerformanceMode.STANDBY -> arrayOf(1, 1, 0, 0, 0, 0, 100, 8)
         }
+        val throttling = params[0]
+        val busSplit = params[1]
+        val forceClkOn = params[2]
+        val forceRailOn = params[3]
+        val forceNoNap = params[4]
+        val forceBusOn = params[5]
+        val idleTimer = params[6]
+        val thermalPwrlevel = params[7]
 
         allSuccess = allSuccess and writeToFile("$gpuBase/throttling", throttling)
         allSuccess = allSuccess and writeToFile("$gpuBase/bus_split", busSplit)
@@ -138,20 +147,20 @@ object OptimizationManager {
      */
     suspend fun applyAllOptimizations(mode: PerformanceMode): Boolean {
         Log.i(TAG, "Applying optimizations for mode: $mode")
-        
+
         val cpuSuccess = applyCpuSet(mode)
         val gpuSuccess = applyGpuOptimization(mode)
-        
+
         val success = cpuSuccess && gpuSuccess
-        
+
         Log.i(TAG, "Optimizations applied: cpu=$cpuSuccess, gpu=$gpuSuccess, overall=$success")
-        
+
         LogRepository.appendLog(
             if (success) LogLevel.INFO else LogLevel.WARNING,
             TAG,
             "Optimizations applied for mode: $mode (cpu=$cpuSuccess, gpu=$gpuSuccess)"
         )
-        
+
         return success
     }
 }
