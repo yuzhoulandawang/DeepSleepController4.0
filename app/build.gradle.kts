@@ -1,6 +1,8 @@
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    // alias(libs.plugins.kotlin.compose)   // 已移除
 }
 
 android {
@@ -80,6 +82,9 @@ dependencies {
     // Libsu - Root权限
     implementation(libs.libsu.core)
     implementation(libs.libsu.service)
+    
+    // Material Components for Android (提供 XML 主题)
+    implementation(libs.material)                // 新增
     
     // Testing
     testImplementation(libs.junit)
