@@ -3,9 +3,6 @@ package com.example.deepsleep.root
 import com.example.deepsleep.data.LogRepository
 import com.example.deepsleep.model.LogLevel
 
-/**
- * GPU 优化控制器 - 专门针对 Adreno GPU
- */
 object GpuOptimizer {
 
     private const val KGSL_BASE = "/sys/class/kgsl/kgsl-3d0"
@@ -120,7 +117,7 @@ object GpuOptimizer {
                     return i
                 }
             }
-            LogRepository.appendLog(LogLevel.WARNING, "GpuOptimizer", "未找到 GPU 温度传感器")  // 修复点：WARN -> WARNING
+            LogRepository.appendLog(LogLevel.WARN, "GpuOptimizer", "未找到 GPU 温度传感器")
             null
         } catch (e: Exception) {
             LogRepository.appendLog(LogLevel.ERROR, "GpuOptimizer", "查找 GPU 温度传感器失败: ${e.message}")
