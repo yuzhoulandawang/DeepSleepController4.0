@@ -13,6 +13,7 @@ libsu = "5.2.2"
 junit = "4.13.2"
 junitExt = "1.2.1"
 espressoCore = "3.6.1"
+material = "1.12.0"                      # 新增：Material Components 版本
 
 [libraries]
 # Core Android
@@ -45,6 +46,9 @@ androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = 
 libsu-core = { group = "com.github.topjohnwu.libsu", name = "core", version.ref = "libsu" }
 libsu-service = { group = "com.github.topjohnwu.libsu", name = "service", version.ref = "libsu" }
 
+# Material Components (提供 XML 主题)
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }   # 新增
+
 # Testing
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitExt" }
@@ -56,4 +60,4 @@ androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
-kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }   # 保留但不再使用
