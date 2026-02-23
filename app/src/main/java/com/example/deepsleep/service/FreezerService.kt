@@ -9,8 +9,6 @@ import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 
 class FreezerService : Service() {
     private val TAG = "FreezerService"
@@ -91,11 +89,11 @@ class FreezerService : Service() {
     }
 
     private fun parseLogcatLine(line: String): String? {
-        val skipKeywords = listOf("recents_animation_input_consumer", "SnapshotStartingWindow", 
+        val skipKeywords = listOf("recents_animation_input_consumer", "SnapshotStartingWindow",
             "InputMethod", "NOT_VISIBLE", "NO_WINDOW", "Update InputWindowHandle", "finishDrawingLocked",
             "showSurfaceRobustly", "interceptKey", "drawing", "token", "laying", "animat",
             "orientation", "config", "type=1400", "leaving", "Ignore")
-        
+
         if (skipKeywords.any { line.contains(it) }) return null
 
         var pkg: String? = null
@@ -158,11 +156,12 @@ class FreezerService : Service() {
             unfreezePackage(newPkg)
 
             if (ENABLE_FREEZER && !currentFgApp.isNullOrBlank() && !currentIsSystem) {
-                if (!hasActiveWorker(currentFgApp!!)) {
+                val fgApp = currentFgApp  // 局部变量解决智能转换问题
+                if (fgApp != null && !hasActiveWorker(fgApp)) {
                     val oldToken = generateToken()
-                    tokenMap[currentFgApp] = oldToken
-                    File(STATE_DIR, "${currentFgApp}.token").writeText(oldToken)
-                    startWorker(currentFgApp!!, oldToken)
+                    tokenMap[fgApp] = oldToken
+                    File(STATE_DIR, "$fgApp.token").writeText(oldToken)
+                    startWorker(fgApp, oldToken)
                 }
             }
 
@@ -261,10 +260,10 @@ class FreezerService : Service() {
             if (cached.isNotBlank()) return cached
         }
 
-        val windowOutput = try { 
+        val windowOutput = try {
             ProcessBuilder("dumpsys", "window").redirectErrorStream(true).start().inputStream.bufferedReader().readText()
         } catch (e: Exception) { return null }
-        
+
         for (line in windowOutput.lines()) {
             if (line.contains("mCurrentFocus") || line.contains("mFocusedApp")) {
                 val regex = Regex("u[0-9]+\\s+([a-zA-Z0-9.]+)")
