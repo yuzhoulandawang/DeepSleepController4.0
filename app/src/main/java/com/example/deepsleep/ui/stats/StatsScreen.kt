@@ -13,8 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.deepsleep.model.Statistics
-// 导入 Computer 图标作为替代
-import androidx.compose.material.icons.filled.Computer
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,6 +23,14 @@ fun StatsScreen(
 ) {
     val statistics by viewModel.statistics.collectAsState()
 
+    // 自动刷新：每秒更新一次数据
+    LaunchedEffect(Unit) {
+        while (true) {
+            viewModel.refreshStatistics()
+            delay(1000)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -32,12 +39,8 @@ fun StatsScreen(
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.refreshStatistics() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "刷新")
-                    }
                 }
+                // 已移除刷新按钮，因为自动刷新
             )
         }
     ) { padding ->
@@ -48,193 +51,79 @@ fun StatsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // 总体概览卡片
             item {
-                StatsCard(
-                    title = "📊 优化概览",
-                    icon = Icons.Default.Analytics
-                ) {
+                StatsCard(title = "📊 优化概览") {
                     Column(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         StatRow(
                             label = "总运行时长",
-                            value = formatDuration(statistics.totalRuntime),
-                            icon = Icons.Default.AccessTime
+                            value = formatDuration(statistics.totalRuntime)
                         )
                         StatRow(
                             label = "优化次数",
-                            value = "${statistics.totalOptimizations}",
-                            icon = Icons.Default.Bolt
+                            value = "${statistics.totalOptimizations}"
                         )
                         StatRow(
                             label = "节省电量",
-                            value = "${statistics.powerSaved} mAh",
-                            icon = Icons.Default.BatteryChargingFull
+                            value = "${statistics.powerSaved} mAh"
                         )
                         StatRow(
                             label = "释放内存",
-                            value = "${statistics.memoryReleased} MB",
-                            icon = Icons.Default.Memory
+                            value = "${statistics.memoryReleased} MB"
                         )
                     }
                 }
             }
 
+            // 进程压制统计
             item {
-                StatsCard(
-                    title = "🎮 GPU 优化",
-                    icon = Icons.Default.Games
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatRow(
-                            label = "GPU 优化次数",
-                            value = "${statistics.gpuOptimizations}",
-                            icon = Icons.Default.Speed
-                        )
-                        StatRow(
-                            label = "平均 GPU 频率",
-                            value = "${statistics.avgGpuFreq / 1000000} MHz",
-                            icon = Icons.Default.TrendingUp
-                        )
-                        StatRow(
-                            label = "GPU 节流次数",
-                            value = "${statistics.gpuThrottlingCount}",
-                            icon = Icons.Default.Thermostat
-                        )
-                        StatRow(
-                            label = "当前 GPU 模式",
-                            value = getGpuModeName(statistics.currentGpuMode),
-                            icon = Icons.Default.Tune
-                        )
-                    }
-                }
-            }
-
-            item {
-                StatsCard(
-                    title = "🖥️ CPU 优化",
-                    icon = Icons.Default.Memory
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatRow(
-                            label = "CPU 绑定次数",
-                            value = "${statistics.cpuBindingCount}",
-                            icon = Icons.Default.Computer   // 使用 Computer 替代 Cpu
-                        )
-                        StatRow(
-                            label = "当前 CPU 模式",
-                            value = getCpuModeName(statistics.currentCpuMode),
-                            icon = Icons.Default.Tune
-                        )
-                        StatRow(
-                            label = "CPU 使用率优化",
-                            value = "${statistics.cpuUsageOptimized}%",
-                            icon = Icons.Default.TrendingDown
-                        )
-                    }
-                }
-            }
-
-            item {
-                StatsCard(
-                    title = "🔧 进程压制",
-                    icon = Icons.Default.Settings
-                ) {
+                StatsCard(title = "🔧 进程压制") {
                     Column(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         StatRow(
                             label = "压制应用总数",
-                            value = "${statistics.suppressedApps}",
-                            icon = Icons.Default.Block
+                            value = "${statistics.suppressedApps}"
                         )
                         StatRow(
                             label = "释放进程数",
-                            value = "${statistics.killedProcesses}",
-                            icon = Icons.Default.DeleteForever
+                            value = "${statistics.killedProcesses}"
                         )
                         StatRow(
                             label = "OOM 调整次数",
-                            value = "${statistics.oomAdjustments}",
-                            icon = Icons.Default.SwapVert
+                            value = "${statistics.oomAdjustments}"
                         )
                         StatRow(
                             label = "平均 OOM 评分",
-                            value = "${statistics.avgOomScore}",
-                            icon = Icons.Default.ShowChart
+                            value = "${statistics.avgOomScore}"
                         )
                     }
                 }
             }
 
+            // 应用冻结统计
             item {
-                StatsCard(
-                    title = "❄️ 应用冻结",
-                    icon = Icons.Default.AcUnit
-                ) {
+                StatsCard(title = "❄️ 应用冻结") {
                     Column(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         StatRow(
                             label = "冻结应用总数",
-                            value = "${statistics.frozenApps}",
-                            icon = Icons.Default.AcUnit
+                            value = "${statistics.frozenApps}"
                         )
                         StatRow(
                             label = "解冻应用总数",
-                            value = "${statistics.thawedApps}",
-                            icon = Icons.Default.Restore
+                            value = "${statistics.thawedApps}"
                         )
                         StatRow(
                             label = "平均冻结时长",
-                            value = formatDuration(statistics.avgFreezeTime),
-                            icon = Icons.Default.Timer
+                            value = formatDuration(statistics.avgFreezeTime)
                         )
                         StatRow(
                             label = "阻止冻结次数",
-                            value = "${statistics.preventedFreezes}",
-                            icon = Icons.Default.Shield
-                        )
-                    }
-                }
-            }
-
-            item {
-                StatsCard(
-                    title = "🎯 场景检测",
-                    icon = Icons.Default.Radar
-                ) {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        StatRow(
-                            label = "游戏场景",
-                            value = "${statistics.gameSceneCount}",
-                            icon = Icons.Default.SportsEsports
-                        )
-                        StatRow(
-                            label = "导航场景",
-                            value = "${statistics.navigationSceneCount}",
-                            icon = Icons.Default.Navigation
-                        )
-                        StatRow(
-                            label = "充电场景",
-                            value = "${statistics.chargingSceneCount}",
-                            icon = Icons.Default.BatteryChargingFull
-                        )
-                        StatRow(
-                            label = "通话场景",
-                            value = "${statistics.callSceneCount}",
-                            icon = Icons.Default.Phone
-                        )
-                        StatRow(
-                            label = "投屏场景",
-                            value = "${statistics.castSceneCount}",
-                            icon = Icons.Default.Cast
+                            value = "${statistics.preventedFreezes}"
                         )
                     }
                 }
@@ -246,7 +135,6 @@ fun StatsScreen(
 @Composable
 fun StatsCard(
     title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Card(
@@ -255,22 +143,12 @@ fun StatsCard(
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
             content()
         }
     }
@@ -279,30 +157,18 @@ fun StatsCard(
 @Composable
 fun StatRow(
     label: String,
-    value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector
+    value: String
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = label,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
@@ -322,23 +188,5 @@ fun formatDuration(millis: Long): String {
         hours > 0 -> "${hours}h ${minutes}m"
         minutes > 0 -> "${minutes}m ${secs}s"
         else -> "${secs}s"
-    }
-}
-
-fun getGpuModeName(mode: String): String {
-    return when (mode) {
-        "performance" -> "性能模式"
-        "power_saving" -> "节能模式"
-        "daily" -> "日常模式"
-        else -> "默认"
-    }
-}
-
-fun getCpuModeName(mode: String): String {
-    return when (mode) {
-        "performance" -> "性能模式"
-        "standby" -> "待机模式"
-        "daily" -> "日常模式"
-        else -> "默认"
     }
 }
