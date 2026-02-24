@@ -1,6 +1,7 @@
 package com.example.deepsleep
 
 import android.Manifest
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -15,6 +16,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.deepsleep.data.SettingsRepository
+import com.example.deepsleep.service.DeepSleepService
 import com.example.deepsleep.ui.logs.LogsScreen
 import com.example.deepsleep.ui.main.MainScreen
 import com.example.deepsleep.ui.main.MainViewModel
@@ -43,6 +45,15 @@ class MainActivity : ComponentActivity() {
             viewModel.refreshRootStatus()
         }
 
+        // 启动服务（适配 Android 8.0+ 的前台服务）
+        Intent(this, DeepSleepService::class.java).also { intent ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
+            }
+        }
+
         setContent {
             DeepSleepTheme {
                 Surface(
@@ -59,7 +70,7 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToLogs = { navController.navigate("logs") },
                                 onNavigateToWhitelist = { navController.navigate("whitelist") },
                                 onNavigateToStats = { navController.navigate("stats") },
-                                onNavigateToSceneCheck = { navController.navigate("sceneCheck") }, // 新增
+                                onNavigateToSceneCheck = { navController.navigate("sceneCheck") },
                                 viewModel = viewModel
                             )
                         }
@@ -72,7 +83,7 @@ class MainActivity : ComponentActivity() {
                         composable("stats") {
                             StatsScreen(onNavigateBack = { navController.popBackStack() })
                         }
-                        composable("sceneCheck") { // 新增场景检测页面
+                        composable("sceneCheck") {
                             SceneCheckScreen(onNavigateBack = { navController.popBackStack() })
                         }
                     }
