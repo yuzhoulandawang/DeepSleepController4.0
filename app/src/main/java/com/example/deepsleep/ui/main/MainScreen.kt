@@ -589,7 +589,7 @@ fun FreezerSection(
     }
 }
 
-// ========== 新增通用组件 ==========
+// ========== 通用组件 ==========
 @Composable
 fun SettingsSection(
     title: String,
