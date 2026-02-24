@@ -6,14 +6,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusManager          // 修正：使用正确的 FocusManager 包
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -24,7 +21,7 @@ import com.example.deepsleep.model.AppSettings
 import kotlinx.coroutines.launch
 
 /**
- * 主页面（整合所有设置项，数值输入统一为圆角文本框，仅保留卡片标题图标）
+ * 主页面（整合所有设置项，无图标，芯片式模式选择，新增进程压制卡片）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,10 +50,10 @@ fun MainScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 状态卡片
+            // 状态卡片（无图标）
             StatusCard(settings, viewModel)
 
-            // 深度睡眠控制
+            // 深度睡眠控制（无图标）
             DeepSleepControlSection(settings, viewModel)
 
             // 深度 Doze 配置
@@ -67,10 +64,8 @@ fun MainScreen(
                     checked = settings.deepDozeEnabled,
                     onCheckedChange = { viewModel.setDeepDozeEnabled(it) }
                 )
-
                 if (settings.deepDozeEnabled) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
                     NumberInputField(
                         label = "延迟进入时间（秒）",
                         value = settings.deepDozeDelaySeconds.toString(),
@@ -81,7 +76,6 @@ fun MainScreen(
                         },
                         focusManager = focusManager
                     )
-
                     SwitchItem(
                         title = "强制 Doze 模式",
                         subtitle = "禁用 motion 检测，强制进入 Doze",
@@ -99,10 +93,8 @@ fun MainScreen(
                     checked = settings.deepSleepHookEnabled,
                     onCheckedChange = { viewModel.setDeepSleepHookEnabled(it) }
                 )
-
                 if (settings.deepSleepHookEnabled) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
                     NumberInputField(
                         label = "延迟进入时间（秒）",
                         value = settings.deepSleepDelaySeconds.toString(),
@@ -113,14 +105,12 @@ fun MainScreen(
                         },
                         focusManager = focusManager
                     )
-
                     SwitchItem(
                         title = "阻止自动退出",
                         subtitle = "屏蔽移动、广播等自动退出条件",
                         checked = settings.deepSleepBlockExit,
                         onCheckedChange = { viewModel.setDeepSleepBlockExit(it) }
                     )
-
                     NumberInputField(
                         label = "状态检查间隔（秒）",
                         value = settings.deepSleepCheckInterval.toString(),
@@ -156,100 +146,20 @@ fun MainScreen(
             // 白名单管理
             WhitelistSection(settings, viewModel, onNavigateToWhitelist)
 
-            // GPU 优化
-            GpuOptimizationSection(settings, viewModel)
+            // CPU 调度优化（提前）
+            CpuSchedulerSection(settings, viewModel)
+
+            // GPU 优化（芯片式模式选择）
+            GpuOptimizationSectionChip(settings, viewModel)
+
+            // CPU 绑定（芯片式模式选择）
+            CpuBindSectionChip(settings, viewModel)
 
             // 电池优化
             BatteryOptimizationSection(settings, viewModel)
 
-            // CPU 绑定
-            CpuOptimizationSection(settings, viewModel)
-
-            // CPU 调度优化
-            SettingsSection(title = "CPU 调度优化") {
-                SwitchItem(
-                    title = "启用 CPU 调度优化",
-                    subtitle = "优化 WALT 调度器参数",
-                    checked = settings.cpuOptimizationEnabled,
-                    onCheckedChange = { viewModel.setCpuOptimizationEnabled(it) }
-                )
-
-                if (settings.cpuOptimizationEnabled) {
-                    HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-                    SwitchItem(
-                        title = "自动切换 CPU 模式",
-                        subtitle = "亮屏/息屏时自动切换模式",
-                        checked = settings.autoSwitchCpuMode,
-                        onCheckedChange = { viewModel.setAutoSwitchCpuMode(it) }
-                    )
-
-                    if (settings.autoSwitchCpuMode) {
-                        Text(
-                            text = "亮屏模式",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            CpuModeChip(
-                                mode = "daily",
-                                currentMode = settings.cpuModeOnScreen,
-                                onClick = { viewModel.setCpuModeOnScreen("daily") }
-                            )
-                            CpuModeChip(
-                                mode = "standby",
-                                currentMode = settings.cpuModeOnScreen,
-                                onClick = { viewModel.setCpuModeOnScreen("standby") }
-                            )
-                            CpuModeChip(
-                                mode = "default",
-                                currentMode = settings.cpuModeOnScreen,
-                                onClick = { viewModel.setCpuModeOnScreen("default") }
-                            )
-                            CpuModeChip(
-                                mode = "performance",
-                                currentMode = settings.cpuModeOnScreen,
-                                onClick = { viewModel.setCpuModeOnScreen("performance") }
-                            )
-                        }
-
-                        Text(
-                            text = "息屏模式",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            CpuModeChip(
-                                mode = "daily",
-                                currentMode = settings.cpuModeOnScreenOff,
-                                onClick = { viewModel.setCpuModeOnScreenOff("daily") }
-                            )
-                            CpuModeChip(
-                                mode = "standby",
-                                currentMode = settings.cpuModeOnScreenOff,
-                                onClick = { viewModel.setCpuModeOnScreenOff("standby") }
-                            )
-                            CpuModeChip(
-                                mode = "default",
-                                currentMode = settings.cpuModeOnScreenOff,
-                                onClick = { viewModel.setCpuModeOnScreenOff("default") }
-                            )
-                            CpuModeChip(
-                                mode = "performance",
-                                currentMode = settings.cpuModeOnScreenOff,
-                                onClick = { viewModel.setCpuModeOnScreenOff("performance") }
-                            )
-                        }
-                    }
-                }
-            }
+            // 进程压制（新增卡片）
+            ProcessSuppressSection(settings, viewModel, focusManager)
 
             // Freezer 服务
             FreezerSection(settings, viewModel, focusManager)
@@ -331,7 +241,7 @@ fun MainScreen(
     }
 }
 
-// ========== 原有组件（已移除内部图标） ==========
+// ========== 组件（已移除图标） ==========
 @Composable
 fun StatusCard(settings: AppSettings, viewModel: MainViewModel) {
     Card(
@@ -344,41 +254,22 @@ fun StatusCard(settings: AppSettings, viewModel: MainViewModel) {
         )
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = if (settings.rootGranted) "Root 权限已获取" else "未获取 Root 权限",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Text(
-                        text = if (settings.serviceRunning) "服务运行中" else "服务未运行",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Icon(
-                    imageVector = if (settings.rootGranted) Icons.Default.CheckCircle else Icons.Default.Error,
-                    contentDescription = null,
-                    tint = if (settings.rootGranted)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.error
-                )
-            }
+            Text(
+                text = if (settings.rootGranted) "Root 权限已获取" else "未获取 Root 权限",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = if (settings.serviceRunning) "服务运行中" else "服务未运行",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
 fun DeepSleepControlSection(settings: AppSettings, viewModel: MainViewModel) {
-    SectionCard(
-        title = "💤 深度睡眠控制",
-        icon = Icons.Default.PowerSettingsNew
-    ) {
+    SettingsSection(title = "深度睡眠控制") {
         SwitchItem(
             title = "启用深度睡眠控制",
             subtitle = "控制系统进入深度睡眠模式",
@@ -405,10 +296,7 @@ fun DeepSleepControlSection(settings: AppSettings, viewModel: MainViewModel) {
 
 @Composable
 fun BackgroundOptimizationSection(settings: AppSettings, viewModel: MainViewModel) {
-    SectionCard(
-        title = "⚡ 后台优化",
-        icon = Icons.Default.FlashOn
-    ) {
+    SettingsSection(title = "后台优化") {
         SwitchItem(
             title = "启用后台优化",
             subtitle = "优化后台应用行为",
@@ -439,10 +327,7 @@ fun WhitelistSection(
     viewModel: MainViewModel,
     onNavigateToWhitelist: () -> Unit
 ) {
-    SectionCard(
-        title = "📋 白名单管理",
-        icon = Icons.Default.FormatListBulleted
-    ) {
+    SettingsSection(title = "白名单管理") {
         ClickableItem(
             title = "管理白名单",
             subtitle = "选择不受深度睡眠影响的应用",
@@ -460,47 +345,8 @@ fun WhitelistSection(
 }
 
 @Composable
-fun GpuOptimizationSection(settings: AppSettings, viewModel: MainViewModel) {
-    var showModeDialog by remember { mutableStateOf(false) }
-
-    SectionCard(
-        title = "🎮 GPU 优化",
-        icon = Icons.Default.VideogameAsset
-    ) {
-        SwitchItem(
-            title = "启用 GPU 优化",
-            subtitle = "优化 GPU 性能和功耗",
-            checked = settings.gpuOptimizationEnabled,
-            onCheckedChange = { viewModel.setGpuOptimizationEnabled(it) }
-        )
-        if (settings.gpuOptimizationEnabled) {
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            ClickableItem(
-                title = "GPU 模式",
-                subtitle = "当前: ${getGpuModeDisplayName(settings.gpuMode)}",
-                onClick = { showModeDialog = true }
-            )
-        }
-    }
-
-    if (showModeDialog) {
-        GpuModeDialog(
-            currentMode = settings.gpuMode,
-            onDismiss = { showModeDialog = false },
-            onModeSelected = {
-                viewModel.setGpuMode(it)
-                showModeDialog = false
-            }
-        )
-    }
-}
-
-@Composable
 fun BatteryOptimizationSection(settings: AppSettings, viewModel: MainViewModel) {
-    SectionCard(
-        title = "🔋 电池优化",
-        icon = Icons.Default.BatteryChargingFull
-    ) {
+    SettingsSection(title = "电池优化") {
         SwitchItem(
             title = "启用电池优化",
             subtitle = "优化电池使用效率",
@@ -519,14 +365,139 @@ fun BatteryOptimizationSection(settings: AppSettings, viewModel: MainViewModel) 
     }
 }
 
+// ========== 新增：CPU 调度优化卡片（保持不变，但已无图标） ==========
 @Composable
-fun CpuOptimizationSection(settings: AppSettings, viewModel: MainViewModel) {
-    var showModeDialog by remember { mutableStateOf(false) }
+fun CpuSchedulerSection(settings: AppSettings, viewModel: MainViewModel) {
+    SettingsSection(title = "CPU 调度优化") {
+        SwitchItem(
+            title = "启用 CPU 调度优化",
+            subtitle = "优化 WALT 调度器参数",
+            checked = settings.cpuOptimizationEnabled,
+            onCheckedChange = { viewModel.setCpuOptimizationEnabled(it) }
+        )
+        if (settings.cpuOptimizationEnabled) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            SwitchItem(
+                title = "自动切换 CPU 模式",
+                subtitle = "亮屏/息屏时自动切换模式",
+                checked = settings.autoSwitchCpuMode,
+                onCheckedChange = { viewModel.setAutoSwitchCpuMode(it) }
+            )
+            if (settings.autoSwitchCpuMode) {
+                Text(
+                    text = "亮屏模式",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    CpuModeChip(
+                        mode = "daily",
+                        currentMode = settings.cpuModeOnScreen,
+                        onClick = { viewModel.setCpuModeOnScreen("daily") }
+                    )
+                    CpuModeChip(
+                        mode = "standby",
+                        currentMode = settings.cpuModeOnScreen,
+                        onClick = { viewModel.setCpuModeOnScreen("standby") }
+                    )
+                    CpuModeChip(
+                        mode = "default",
+                        currentMode = settings.cpuModeOnScreen,
+                        onClick = { viewModel.setCpuModeOnScreen("default") }
+                    )
+                    CpuModeChip(
+                        mode = "performance",
+                        currentMode = settings.cpuModeOnScreen,
+                        onClick = { viewModel.setCpuModeOnScreen("performance") }
+                    )
+                }
 
-    SectionCard(
-        title = "🖥️ CPU 绑定",
-        icon = Icons.Default.Memory
-    ) {
+                Text(
+                    text = "息屏模式",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    CpuModeChip(
+                        mode = "daily",
+                        currentMode = settings.cpuModeOnScreenOff,
+                        onClick = { viewModel.setCpuModeOnScreenOff("daily") }
+                    )
+                    CpuModeChip(
+                        mode = "standby",
+                        currentMode = settings.cpuModeOnScreenOff,
+                        onClick = { viewModel.setCpuModeOnScreenOff("standby") }
+                    )
+                    CpuModeChip(
+                        mode = "default",
+                        currentMode = settings.cpuModeOnScreenOff,
+                        onClick = { viewModel.setCpuModeOnScreenOff("default") }
+                    )
+                    CpuModeChip(
+                        mode = "performance",
+                        currentMode = settings.cpuModeOnScreenOff,
+                        onClick = { viewModel.setCpuModeOnScreenOff("performance") }
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ========== 修改：GPU 优化改为芯片式选择 ==========
+@Composable
+fun GpuOptimizationSectionChip(settings: AppSettings, viewModel: MainViewModel) {
+    SettingsSection(title = "GPU 优化") {
+        SwitchItem(
+            title = "启用 GPU 优化",
+            subtitle = "优化 GPU 性能和功耗",
+            checked = settings.gpuOptimizationEnabled,
+            onCheckedChange = { viewModel.setGpuOptimizationEnabled(it) }
+        )
+        if (settings.gpuOptimizationEnabled) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            Text(
+                text = "GPU 模式",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                GpuModeChip(
+                    mode = "default",
+                    currentMode = settings.gpuMode,
+                    onClick = { viewModel.setGpuMode("default") }
+                )
+                GpuModeChip(
+                    mode = "performance",
+                    currentMode = settings.gpuMode,
+                    onClick = { viewModel.setGpuMode("performance") }
+                )
+                GpuModeChip(
+                    mode = "power_saving",
+                    currentMode = settings.gpuMode,
+                    onClick = { viewModel.setGpuMode("power_saving") }
+                )
+            }
+        }
+    }
+}
+
+// ========== 修改：CPU 绑定改为芯片式选择 ==========
+@Composable
+fun CpuBindSectionChip(settings: AppSettings, viewModel: MainViewModel) {
+    SettingsSection(title = "CPU 绑定") {
         SwitchItem(
             title = "启用 CPU 绑定",
             subtitle = "通过 cpuset 控制不同进程组的 CPU 核心分配",
@@ -535,26 +506,71 @@ fun CpuOptimizationSection(settings: AppSettings, viewModel: MainViewModel) {
         )
         if (settings.cpuBindEnabled) {
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            ClickableItem(
-                title = "CPU 模式",
-                subtitle = "当前: ${getCpuModeDisplayName(settings.cpuMode)}",
-                onClick = { showModeDialog = true }
+            Text(
+                text = "CPU 模式",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 4.dp)
             )
-        }
-    }
-
-    if (showModeDialog) {
-        CpuModeDialog(
-            currentMode = settings.cpuMode,
-            onDismiss = { showModeDialog = false },
-            onModeSelected = {
-                viewModel.setCpuMode(it)
-                showModeDialog = false
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                CpuModeChip(
+                    mode = "daily",
+                    currentMode = settings.cpuMode,
+                    onClick = { viewModel.setCpuMode("daily") }
+                )
+                CpuModeChip(
+                    mode = "standby",
+                    currentMode = settings.cpuMode,
+                    onClick = { viewModel.setCpuMode("standby") }
+                )
+                CpuModeChip(
+                    mode = "performance",
+                    currentMode = settings.cpuMode,
+                    onClick = { viewModel.setCpuMode("performance") }
+                )
             }
-        )
+        }
     }
 }
 
+// ========== 新增：进程压制卡片 ==========
+@Composable
+fun ProcessSuppressSection(
+    settings: AppSettings,
+    viewModel: MainViewModel,
+    focusManager: FocusManager
+) {
+    var scoreText by remember { mutableStateOf(settings.suppressScore.toString()) }
+    val scope = rememberCoroutineScope()
+
+    SettingsSection(title = "进程压制") {
+        SwitchItem(
+            title = "启用进程压制",
+            subtitle = "调整后台进程 OOM 评分",
+            checked = settings.processSuppressEnabled,
+            onCheckedChange = { viewModel.setProcessSuppressEnabled(it) }
+        )
+        if (settings.processSuppressEnabled) {
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            NumberInputField(
+                label = "压制评分（-1000 到 1000）",
+                value = scoreText,
+                onValueChange = { newValue ->
+                    scoreText = newValue
+                    newValue.toIntOrNull()?.let {
+                        scope.launch { viewModel.setSuppressScore(it) }
+                    }
+                },
+                focusManager = focusManager
+            )
+        }
+    }
+}
+
+// ========== Freezer 服务卡片（无图标） ==========
 @Composable
 fun FreezerSection(
     settings: AppSettings,
@@ -564,10 +580,7 @@ fun FreezerSection(
     var delayText by remember { mutableStateOf(settings.freezeDelay.toString()) }
     val scope = rememberCoroutineScope()
 
-    SectionCard(
-        title = "❄️ Freezer 服务",
-        icon = Icons.Default.AcUnit
-    ) {
+    SettingsSection(title = "Freezer 服务") {
         SwitchItem(
             title = "启用 Freezer",
             subtitle = "冻结不活跃的后台进程",
@@ -591,7 +604,7 @@ fun FreezerSection(
     }
 }
 
-// ========== 通用组件 ==========
+// ========== 通用组件（无图标） ==========
 @Composable
 fun SettingsSection(
     title: String,
@@ -665,43 +678,11 @@ fun ClickableItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            Icon(
-                imageVector = Icons.Default.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            Text(
+                text = "›",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
-    }
-}
-
-@Composable
-fun SectionCard(
-    title: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    content: @Composable ColumnScope.() -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            content()
         }
     }
 }
@@ -761,94 +742,23 @@ fun CpuModeChip(
 }
 
 @Composable
-fun CpuModeDialog(
+fun GpuModeChip(
+    mode: String,
     currentMode: String,
-    onDismiss: () -> Unit,
-    onModeSelected: (String) -> Unit
+    onClick: () -> Unit
 ) {
-    val modes = listOf(
-        "daily" to "日常模式",
-        "performance" to "性能模式",
-        "standby" to "待机模式"
-    )
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("选择 CPU 模式") },
-        text = {
-            Column {
-                modes.forEach { (mode, name) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = currentMode == mode,
-                            onClick = { onModeSelected(mode) }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(name)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        }
-    )
-}
+    val isSelected = mode == currentMode
+    val modeName = when (mode) {
+        "default" -> "默认"
+        "performance" -> "性能"
+        "power_saving" -> "节能"
+        else -> mode
+    }
 
-@Composable
-fun GpuModeDialog(
-    currentMode: String,
-    onDismiss: () -> Unit,
-    onModeSelected: (String) -> Unit
-) {
-    val modes = listOf(
-        "default" to "默认模式",
-        "performance" to "性能模式",
-        "power_saving" to "节能模式"
+    FilterChip(
+        selected = isSelected,
+        onClick = onClick,
+        label = { Text(modeName) },
+        shape = RoundedCornerShape(16.dp)
     )
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("选择 GPU 模式") },
-        text = {
-            Column {
-                modes.forEach { (mode, name) ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        RadioButton(
-                            selected = currentMode == mode,
-                            onClick = { onModeSelected(mode) }
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(name)
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        }
-    )
-}
-
-// ========== 辅助函数 ==========
-fun getCpuModeDisplayName(mode: String): String = when (mode) {
-    "performance" -> "性能模式"
-    "standby" -> "待机模式"
-    "daily" -> "日常模式"
-    else -> "默认"
-}
-
-fun getGpuModeDisplayName(mode: String): String = when (mode) {
-    "performance" -> "性能模式"
-    "power_saving" -> "节能模式"
-    "default" -> "默认模式"
-    else -> "默认"
 }
