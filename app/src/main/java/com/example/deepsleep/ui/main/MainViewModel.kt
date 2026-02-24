@@ -8,6 +8,7 @@ import com.example.deepsleep.data.LogRepository
 import com.example.deepsleep.model.AppSettings
 import com.example.deepsleep.root.OptimizationManager
 import com.example.deepsleep.root.ProcessSuppressor
+import com.example.deepsleep.root.RootCommander   // 添加导入
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,12 +41,13 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    // 修改点：使用 RootCommander.checkRoot() 替代 Runtime.exec
     fun refreshRootStatus() {
         viewModelScope.launch {
             val hasRoot = try {
-                Runtime.getRuntime().exec(arrayOf("su", "-c", "exit")).waitFor() == 0
+                RootCommander.checkRoot()
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to check root status", e)
+                Log.e(TAG, "Failed to check root status via RootCommander", e)
                 false
             }
             _settings.value = _settings.value.copy(rootGranted = hasRoot)
