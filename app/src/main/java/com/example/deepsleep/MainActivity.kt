@@ -16,6 +16,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.deepsleep.data.SettingsRepository
+import com.example.deepsleep.data.StatsRepository   // 新增导入
 import com.example.deepsleep.service.DeepSleepService
 import com.example.deepsleep.ui.logs.LogsScreen
 import com.example.deepsleep.ui.main.MainScreen
@@ -36,6 +37,11 @@ class MainActivity : ComponentActivity() {
 
         SettingsRepository.initialize(this)
 
+        // 加载统计数据
+        lifecycleScope.launch {
+            StatsRepository.ensureLoaded()
+        }
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
@@ -45,7 +51,6 @@ class MainActivity : ComponentActivity() {
             viewModel.refreshRootStatus()
         }
 
-        // 启动服务（适配 Android 8.0+ 的前台服务）
         Intent(this, DeepSleepService::class.java).also { intent ->
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 startForegroundService(intent)
