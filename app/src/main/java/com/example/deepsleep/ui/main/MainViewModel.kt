@@ -245,7 +245,6 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // GPU 模式快捷按钮
     fun applyGpuPerformanceMode() = setGpuMode("performance")
     fun applyGpuPowerSavingMode() = setGpuMode("power_saving")
     fun applyGpuDefaultMode() = setGpuMode("default")
@@ -265,28 +264,14 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // ========== CPU 绑定 ==========
-    fun setCpuBindEnabled(enabled: Boolean) {
-        viewModelScope.launch {
-            _settings.value = _settings.value.copy(cpuBindEnabled = enabled)
-            SettingsRepository.setCpuBindEnabled(enabled)
-        }
-    }
-
-    fun setCpuMode(mode: String) {
-        viewModelScope.launch {
-            _settings.value = _settings.value.copy(cpuMode = mode)
-            SettingsRepository.setCpuMode(mode)
-        }
-    }
-
-    // ========== CPU 调度优化 ==========
+    // ========== CPU 调度优化（合并了CPU绑定） ==========
     fun setCpuOptimizationEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(cpuOptimizationEnabled = enabled)
             SettingsRepository.setCpuOptimizationEnabled(enabled)
             if (enabled) {
                 switchSchedulerToWalt()
+                applyCpuOptimization()
             }
             LogRepository.info(TAG, "CPU optimization enabled: $enabled")
         }
@@ -299,10 +284,13 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun setAllowManualCpuMode(enabled: Boolean) {
+    fun setCpuMode(mode: String) {
         viewModelScope.launch {
-            _settings.value = _settings.value.copy(allowManualCpuMode = enabled)
-            SettingsRepository.setAllowManualCpuMode(enabled)
+            _settings.value = _settings.value.copy(cpuMode = mode)
+            SettingsRepository.setCpuMode(mode)
+            if (!_settings.value.autoSwitchCpuMode) {
+                applyCpuOptimization()
+            }
         }
     }
 
@@ -317,6 +305,26 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(cpuModeOnScreenOff = mode)
             SettingsRepository.setCpuModeOnScreenOff(mode)
+        }
+    }
+
+    private suspend fun applyCpuOptimization() {
+        val settings = _settings.value
+        if (!settings.cpuOptimizationEnabled) return
+        val modeToApply = if (settings.autoSwitchCpuMode) {
+            // 自动切换模式下，需要屏幕状态，暂不自动应用
+            null
+        } else {
+            settings.cpuMode
+        }
+        modeToApply?.let { mode ->
+            val optMode = when (mode) {
+                "performance" -> OptimizationManager.PerformanceMode.PERFORMANCE
+                "standby" -> OptimizationManager.PerformanceMode.STANDBY
+                else -> OptimizationManager.PerformanceMode.DAILY
+            }
+            OptimizationManager.applyAllOptimizations(optMode)
+            LogRepository.info(TAG, "Applied CPU optimization for mode: $mode")
         }
     }
 
@@ -422,10 +430,6 @@ class MainViewModel : ViewModel() {
     }
 
     // ========== 辅助函数 ==========
-    /**
-     * 切换 CPU 调度器为 WALT
-     * 遍历所有 policy 并将 scaling_governor 设置为 "walt"
-     */
     private suspend fun switchSchedulerToWalt() {
         val script = """
             for policy in /sys/devices/system/cpu/cpufreq/policy*; do
