@@ -21,7 +21,7 @@ import com.example.deepsleep.model.AppSettings
 import kotlinx.coroutines.launch
 
 /**
- * 主页面（整合所有设置项，无图标，芯片式模式选择，场景检测改为跳转）
+ * 主页面（整合所有设置项，无图标，芯片式模式选择，CPU调度优化合并了CPU绑定）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,7 +29,7 @@ fun MainScreen(
     onNavigateToLogs: () -> Unit,
     onNavigateToWhitelist: () -> Unit,
     onNavigateToStats: () -> Unit,
-    onNavigateToSceneCheck: () -> Unit,  // 新增：跳转到场景检测配置页
+    onNavigateToSceneCheck: () -> Unit,
     viewModel: MainViewModel = viewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
@@ -51,10 +51,10 @@ fun MainScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 状态卡片（无图标）
+            // 状态卡片
             StatusCard(settings, viewModel)
 
-            // 深度睡眠控制（无图标）
+            // 深度睡眠控制
             DeepSleepControlSection(settings, viewModel)
 
             // 深度 Doze 配置
@@ -147,14 +147,11 @@ fun MainScreen(
             // 白名单管理
             WhitelistSection(settings, viewModel, onNavigateToWhitelist)
 
-            // CPU 调度优化
+            // CPU 调度优化（合并了CPU绑定）
             CpuSchedulerSection(settings, viewModel)
 
-            // GPU 优化（芯片式模式选择）
+            // GPU 优化
             GpuOptimizationSectionChip(settings, viewModel)
-
-            // CPU 绑定（芯片式模式选择）
-            CpuBindSectionChip(settings, viewModel)
 
             // 电池优化
             BatteryOptimizationSection(settings, viewModel)
@@ -165,7 +162,7 @@ fun MainScreen(
             // Freezer 服务
             FreezerSection(settings, viewModel, focusManager)
 
-            // 场景检测（改为可点击卡片）
+            // 场景检测
             SettingsSection(title = "场景检测") {
                 SwitchItem(
                     title = "启用场景检测",
@@ -200,7 +197,7 @@ fun MainScreen(
     }
 }
 
-// ========== 组件（已移除图标） ==========
+// ========== 组件 ==========
 @Composable
 fun StatusCard(settings: AppSettings, viewModel: MainViewModel) {
     Card(
@@ -324,13 +321,12 @@ fun BatteryOptimizationSection(settings: AppSettings, viewModel: MainViewModel) 
     }
 }
 
-// CPU 调度优化
 @Composable
 fun CpuSchedulerSection(settings: AppSettings, viewModel: MainViewModel) {
     SettingsSection(title = "CPU 调度优化") {
         SwitchItem(
             title = "启用 CPU 调度优化",
-            subtitle = "优化 WALT 调度器参数",
+            subtitle = "优化 CPU 调度器并自动应用 CPU 绑定",
             checked = settings.cpuOptimizationEnabled,
             onCheckedChange = { viewModel.setCpuOptimizationEnabled(it) }
         )
@@ -364,11 +360,6 @@ fun CpuSchedulerSection(settings: AppSettings, viewModel: MainViewModel) {
                         onClick = { viewModel.setCpuModeOnScreen("standby") }
                     )
                     CpuModeChip(
-                        mode = "default",
-                        currentMode = settings.cpuModeOnScreen,
-                        onClick = { viewModel.setCpuModeOnScreen("default") }
-                    )
-                    CpuModeChip(
                         mode = "performance",
                         currentMode = settings.cpuModeOnScreen,
                         onClick = { viewModel.setCpuModeOnScreen("performance") }
@@ -396,14 +387,36 @@ fun CpuSchedulerSection(settings: AppSettings, viewModel: MainViewModel) {
                         onClick = { viewModel.setCpuModeOnScreenOff("standby") }
                     )
                     CpuModeChip(
-                        mode = "default",
-                        currentMode = settings.cpuModeOnScreenOff,
-                        onClick = { viewModel.setCpuModeOnScreenOff("default") }
-                    )
-                    CpuModeChip(
                         mode = "performance",
                         currentMode = settings.cpuModeOnScreenOff,
                         onClick = { viewModel.setCpuModeOnScreenOff("performance") }
+                    )
+                }
+            } else {
+                Text(
+                    text = "当前 CPU 模式",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    CpuModeChip(
+                        mode = "daily",
+                        currentMode = settings.cpuMode,
+                        onClick = { viewModel.setCpuMode("daily") }
+                    )
+                    CpuModeChip(
+                        mode = "standby",
+                        currentMode = settings.cpuMode,
+                        onClick = { viewModel.setCpuMode("standby") }
+                    )
+                    CpuModeChip(
+                        mode = "performance",
+                        currentMode = settings.cpuMode,
+                        onClick = { viewModel.setCpuMode("performance") }
                     )
                 }
             }
@@ -411,7 +424,6 @@ fun CpuSchedulerSection(settings: AppSettings, viewModel: MainViewModel) {
     }
 }
 
-// GPU 优化（芯片式）
 @Composable
 fun GpuOptimizationSectionChip(settings: AppSettings, viewModel: MainViewModel) {
     SettingsSection(title = "GPU 优化") {
@@ -453,49 +465,6 @@ fun GpuOptimizationSectionChip(settings: AppSettings, viewModel: MainViewModel) 
     }
 }
 
-// CPU 绑定（芯片式）
-@Composable
-fun CpuBindSectionChip(settings: AppSettings, viewModel: MainViewModel) {
-    SettingsSection(title = "CPU 绑定") {
-        SwitchItem(
-            title = "启用 CPU 绑定",
-            subtitle = "通过 cpuset 控制不同进程组的 CPU 核心分配",
-            checked = settings.cpuBindEnabled,
-            onCheckedChange = { viewModel.setCpuBindEnabled(it) }
-        )
-        if (settings.cpuBindEnabled) {
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-            Text(
-                text = "CPU 模式",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                CpuModeChip(
-                    mode = "daily",
-                    currentMode = settings.cpuMode,
-                    onClick = { viewModel.setCpuMode("daily") }
-                )
-                CpuModeChip(
-                    mode = "standby",
-                    currentMode = settings.cpuMode,
-                    onClick = { viewModel.setCpuMode("standby") }
-                )
-                CpuModeChip(
-                    mode = "performance",
-                    currentMode = settings.cpuMode,
-                    onClick = { viewModel.setCpuMode("performance") }
-                )
-            }
-        }
-    }
-}
-
-// 进程压制
 @Composable
 fun ProcessSuppressSection(
     settings: AppSettings,
@@ -529,7 +498,6 @@ fun ProcessSuppressSection(
     }
 }
 
-// Freezer 服务
 @Composable
 fun FreezerSection(
     settings: AppSettings,
@@ -687,7 +655,6 @@ fun CpuModeChip(
     val modeName = when (mode) {
         "daily" -> "日常"
         "standby" -> "待机"
-        "default" -> "默认"
         "performance" -> "性能"
         else -> mode
     }
