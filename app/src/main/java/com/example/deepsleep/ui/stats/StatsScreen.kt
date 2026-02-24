@@ -9,15 +9,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.deepsleep.model.Statistics
+// 确保导入 Cpu 图标
+import androidx.compose.material.icons.filled.Cpu
 
-/**
- * 统计数据页面
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StatsScreen(
@@ -25,7 +23,7 @@ fun StatsScreen(
     viewModel: StatsViewModel = viewModel()
 ) {
     val statistics by viewModel.statistics.collectAsState()
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -50,7 +48,6 @@ fun StatsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 总体概览卡片
             item {
                 StatsCard(
                     title = "📊 优化概览",
@@ -82,8 +79,7 @@ fun StatsScreen(
                     }
                 }
             }
-            
-            // GPU 优化统计
+
             item {
                 StatsCard(
                     title = "🎮 GPU 优化",
@@ -115,8 +111,7 @@ fun StatsScreen(
                     }
                 }
             }
-            
-            // CPU 优化统计
+
             item {
                 StatsCard(
                     title = "🖥️ CPU 优化",
@@ -143,8 +138,7 @@ fun StatsScreen(
                     }
                 }
             }
-            
-            // 进程压制统计
+
             item {
                 StatsCard(
                     title = "🔧 进程压制",
@@ -176,8 +170,7 @@ fun StatsScreen(
                     }
                 }
             }
-            
-            // 应用冻结统计
+
             item {
                 StatsCard(
                     title = "❄️ 应用冻结",
@@ -209,8 +202,7 @@ fun StatsScreen(
                     }
                 }
             }
-            
-            // 场景检测统计
+
             item {
                 StatsCard(
                     title = "🎯 场景检测",
@@ -325,7 +317,7 @@ fun formatDuration(millis: Long): String {
     val hours = seconds / 3600
     val minutes = (seconds % 3600) / 60
     val secs = seconds % 60
-    
+
     return when {
         hours > 0 -> "${hours}h ${minutes}m"
         minutes > 0 -> "${minutes}m ${secs}s"
