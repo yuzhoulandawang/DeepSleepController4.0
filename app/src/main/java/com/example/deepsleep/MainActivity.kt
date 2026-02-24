@@ -15,7 +15,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.deepsleep.data.SettingsRepository
-import com.example.deepsleep.service.FreezerService
 import com.example.deepsleep.ui.main.MainScreen
 import com.example.deepsleep.ui.main.MainViewModel
 import com.example.deepsleep.ui.logs.LogsScreen
@@ -71,7 +70,6 @@ class MainActivity : ComponentActivity() {
                         composable("stats") {
                             StatsScreen(onNavigateBack = { navController.popBackStack() })
                         }
-                        // 设置页面已移除
                     }
                 }
             }
