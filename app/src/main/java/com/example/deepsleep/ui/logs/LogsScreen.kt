@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.deepsleep.model.LogEntry
 import com.example.deepsleep.model.LogLevel
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -29,7 +30,6 @@ fun LogsScreen(
 ) {
     val context = LocalContext.current
     val viewModel: LogsViewModel = viewModel()
-    val logs by viewModel.logs.collectAsState()
     val filteredLogs by viewModel.filteredLogs.collectAsState()
     val selectedLevel by viewModel.selectedLevel.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
