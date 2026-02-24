@@ -15,12 +15,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.deepsleep.data.SettingsRepository
+import com.example.deepsleep.ui.logs.LogsScreen
 import com.example.deepsleep.ui.main.MainScreen
 import com.example.deepsleep.ui.main.MainViewModel
-import com.example.deepsleep.ui.logs.LogsScreen
+import com.example.deepsleep.ui.scene.SceneCheckScreen
 import com.example.deepsleep.ui.stats.StatsScreen
-import com.example.deepsleep.ui.whitelist.WhitelistScreen
 import com.example.deepsleep.ui.theme.DeepSleepTheme
+import com.example.deepsleep.ui.whitelist.WhitelistScreen
 import com.example.deepsleep.root.RootCommander
 import kotlinx.coroutines.launch
 
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToLogs = { navController.navigate("logs") },
                                 onNavigateToWhitelist = { navController.navigate("whitelist") },
                                 onNavigateToStats = { navController.navigate("stats") },
+                                onNavigateToSceneCheck = { navController.navigate("sceneCheck") }, // 新增
                                 viewModel = viewModel
                             )
                         }
@@ -69,6 +71,9 @@ class MainActivity : ComponentActivity() {
                         }
                         composable("stats") {
                             StatsScreen(onNavigateBack = { navController.popBackStack() })
+                        }
+                        composable("sceneCheck") { // 新增场景检测页面
+                            SceneCheckScreen(onNavigateBack = { navController.popBackStack() })
                         }
                     }
                 }
