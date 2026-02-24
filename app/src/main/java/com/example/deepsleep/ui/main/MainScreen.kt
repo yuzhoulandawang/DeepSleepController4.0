@@ -2,6 +2,7 @@ package com.example.deepsleep.ui.main
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -12,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.FocusManager
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -20,9 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.deepsleep.model.AppSettings
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.FocusManager
 
 /**
  * 主页面（整合所有设置项，数值输入统一为圆角文本框，仅保留卡片标题图标）
@@ -560,7 +559,7 @@ fun CpuOptimizationSection(settings: AppSettings, viewModel: MainViewModel) {
 fun FreezerSection(
     settings: AppSettings,
     viewModel: MainViewModel,
-    focusManager: androidx.compose.ui.platform.FocusManager
+    focusManager: FocusManager
 ) {
     var delayText by remember { mutableStateOf(settings.freezeDelay.toString()) }
     val scope = rememberCoroutineScope()
@@ -712,7 +711,7 @@ fun NumberInputField(
     label: String,
     value: String,
     onValueChange: (String) -> Unit,
-    focusManager: androidx.compose.ui.platform.FocusManager
+    focusManager: FocusManager
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
