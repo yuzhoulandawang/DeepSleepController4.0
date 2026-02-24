@@ -42,6 +42,16 @@ object OptimizationManager {
         return@withContext File(path).exists()
     }
 
+    // 仅当文件存在时才写入，并返回 true（跳过不存在的文件不视为失败）
+    private suspend fun writeToFileIfExists(path: String, value: Any): Boolean {
+        return if (fileExists(path)) {
+            writeToFile(path, value)
+        } else {
+            Log.d(TAG, "File not exists, skip: $path")
+            true
+        }
+    }
+
     private suspend fun applyCpuSet(mode: PerformanceMode): Boolean {
         val cpusetBase = "/dev/cpuset"
         if (!fileExists(cpusetBase)) {
@@ -108,7 +118,6 @@ object OptimizationManager {
 
         var allSuccess = true
 
-        // 修复：分别赋值，避免解构超长
         val params = when (mode) {
             PerformanceMode.PERFORMANCE -> arrayOf(0, 0, 1, 1, 1, 1, 10, 0)
             PerformanceMode.DAILY -> arrayOf(1, 1, 0, 0, 0, 0, 50, 5)
@@ -123,20 +132,21 @@ object OptimizationManager {
         val idleTimer = params[6]
         val thermalPwrlevel = params[7]
 
-        allSuccess = allSuccess and writeToFile("$gpuBase/throttling", throttling)
-        allSuccess = allSuccess and writeToFile("$gpuBase/bus_split", busSplit)
-        allSuccess = allSuccess and writeToFile("$gpuBase/force_clk_on", forceClkOn)
-        allSuccess = allSuccess and writeToFile("$gpuBase/force_rail_on", forceRailOn)
-        allSuccess = allSuccess and writeToFile("$gpuBase/force_no_nap", forceNoNap)
-        allSuccess = allSuccess and writeToFile("$gpuBase/force_bus_on", forceBusOn)
-        allSuccess = allSuccess and writeToFile("$gpuBase/idle_timer", idleTimer)
-        allSuccess = allSuccess and writeToFile("$gpuBase/max_gpuclk", maxFreq)
-        allSuccess = allSuccess and writeToFile("$gpuBase/thermal_pwrlevel", thermalPwrlevel)
+        allSuccess = allSuccess and writeToFileIfExists("$gpuBase/throttling", throttling)
+        allSuccess = allSuccess and writeToFileIfExists("$gpuBase/bus_split", busSplit)
+        allSuccess = allSuccess and writeToFileIfExists("$gpuBase/force_clk_on", forceClkOn)
+        allSuccess = allSuccess and writeToFileIfExists("$gpuBase/force_rail_on", forceRailOn)
+        allSuccess = allSuccess and writeToFileIfExists("$gpuBase/force_no_nap", forceNoNap)
+        allSuccess = allSuccess and writeToFileIfExists("$gpuBase/force_bus_on", forceBusOn)
+        allSuccess = allSuccess and writeToFileIfExists("$gpuBase/idle_timer", idleTimer)
+        allSuccess = allSuccess and writeToFileIfExists("$gpuBase/max_gpuclk", maxFreq)
+        allSuccess = allSuccess and writeToFileIfExists("$gpuBase/thermal_pwrlevel", thermalPwrlevel)
 
+        // 动态查找 devfreq 目录
         val devfreqBase = "/sys/class/devfreq"
-        File(devfreqBase).listFiles { file -> file.isDirectory && file.name.contains("kgsl-3d0") }?.forEach { dir ->
-            allSuccess = allSuccess and writeToFile("${dir.absolutePath}/min_freq", minFreq)
-            allSuccess = allSuccess and writeToFile("${dir.absolutePath}/max_freq", maxFreq)
+        File(devfreqBase).listFiles { file -> file.isDirectory && file.name.contains("kgsl") }?.forEach { dir ->
+            allSuccess = allSuccess and writeToFileIfExists("${dir.absolutePath}/min_freq", minFreq)
+            allSuccess = allSuccess and writeToFileIfExists("${dir.absolutePath}/max_freq", maxFreq)
         }
 
         return allSuccess
