@@ -54,10 +54,12 @@ class DeepSleepService : Service() {
         if (!isRunning) {
             startAsForeground()
             isRunning = true
-            startOptimizationLoop()
+            // 更新服务运行状态
             serviceScope.launch {
+                SettingsRepository.setServiceRunning(true)
                 LogRepository.appendLog(LogLevel.INFO, TAG, "DeepSleep service started")
             }
+            startOptimizationLoop()
         }
         return START_STICKY
     }
@@ -154,6 +156,8 @@ class DeepSleepService : Service() {
         serviceScope.cancel()
         isRunning = false
         runBlocking {
+            // 更新服务停止状态
+            SettingsRepository.setServiceRunning(false)
             LogRepository.appendLog(LogLevel.INFO, TAG, "DeepSleep service destroyed")
         }
         super.onDestroy()
