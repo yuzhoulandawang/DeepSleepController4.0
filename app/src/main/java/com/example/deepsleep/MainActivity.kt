@@ -18,7 +18,6 @@ import com.example.deepsleep.data.SettingsRepository
 import com.example.deepsleep.service.FreezerService
 import com.example.deepsleep.ui.main.MainScreen
 import com.example.deepsleep.ui.main.MainViewModel
-import com.example.deepsleep.ui.settings.SettingsScreen
 import com.example.deepsleep.ui.logs.LogsScreen
 import com.example.deepsleep.ui.stats.StatsScreen
 import com.example.deepsleep.ui.whitelist.WhitelistScreen
@@ -59,13 +58,9 @@ class MainActivity : ComponentActivity() {
                             MainScreen(
                                 onNavigateToLogs = { navController.navigate("logs") },
                                 onNavigateToWhitelist = { navController.navigate("whitelist") },
-                                onNavigateToSettings = { navController.navigate("settings") },
                                 onNavigateToStats = { navController.navigate("stats") },
                                 viewModel = viewModel
                             )
-                        }
-                        composable("settings") {
-                            SettingsScreen(onNavigateBack = { navController.popBackStack() })
                         }
                         composable("logs") {
                             LogsScreen(onNavigateBack = { navController.popBackStack() })
@@ -76,6 +71,7 @@ class MainActivity : ComponentActivity() {
                         composable("stats") {
                             StatsScreen(onNavigateBack = { navController.popBackStack() })
                         }
+                        // 设置页面已移除
                     }
                 }
             }
