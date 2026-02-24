@@ -22,18 +22,14 @@ object StatsRepository {
     private const val STATS_FILE = "/data/local/tmp/deep_sleep_logs/stats.txt"
     private val statsMutex = Mutex()
 
-    // 内存中的统计数据（包含历史累计值）
     private val _statistics = MutableStateFlow(Statistics())
     val statistics: StateFlow<Statistics> = _statistics.asStateFlow()
 
-    // 记录服务启动的时间戳（用于计算当前会话的运行时间）
     private var sessionStartTime = System.currentTimeMillis()
-
-    // 标记是否已从文件加载过
     private var isLoaded = false
 
-    // 内存中的计数器（私有）
-    private var _totalRuntimeHistory = 0L          // 历史累计运行时间（不含本次会话）
+    // 内存中的计数器
+    private var _totalRuntimeHistory = 0L
     private var _totalOptimizations = 0
     private var _powerSaved = 0L
     private var _memoryReleased = 0L
@@ -73,9 +69,6 @@ object StatsRepository {
         }
     }
 
-    /**
-     * 从文件加载统计数据并更新内存和 StateFlow
-     */
     private suspend fun loadStatsFromFile() {
         withContext(Dispatchers.IO) {
             val content = RootCommander.readFile(STATS_FILE)
@@ -87,7 +80,6 @@ object StatsRepository {
                         parts[0].trim() to parts[1].trim()
                     }
 
-                // 读取历史累计运行时间
                 _totalRuntimeHistory = map["TOTAL_RUNTIME"]?.toLongOrNull() ?: 0L
                 _totalOptimizations = map["TOTAL_OPTIMIZATIONS"]?.toIntOrNull() ?: 0
                 _powerSaved = map["POWER_SAVED"]?.toLongOrNull() ?: 0L
@@ -116,14 +108,10 @@ object StatsRepository {
                 _recentActivities.addAll(map["RECENT_ACTIVITIES"]?.split("|")?.filter { it.isNotBlank() } ?: emptyList())
             }
 
-            // 更新 StateFlow
             updateStateFlow()
         }
     }
 
-    /**
-     * 更新 StateFlow 中的值
-     */
     private suspend fun updateStateFlow() {
         val currentTotal = _totalRuntimeHistory + (System.currentTimeMillis() - sessionStartTime)
         _statistics.value = Statistics(
@@ -155,14 +143,11 @@ object StatsRepository {
         )
     }
 
-    /**
-     * 保存当前统计数据到文件
-     */
     private suspend fun saveStatsToFile() = statsMutex.withLock {
         withContext(Dispatchers.IO) {
             val stats = _statistics.value
             val content = buildString {
-                appendLine("TOTAL_RUNTIME=${_totalRuntimeHistory}")   // 保存历史累计，不含本次会话
+                appendLine("TOTAL_RUNTIME=$_totalRuntimeHistory")
                 appendLine("TOTAL_OPTIMIZATIONS=${stats.totalOptimizations}")
                 appendLine("POWER_SAVED=${stats.powerSaved}")
                 appendLine("MEMORY_RELEASED=${stats.memoryReleased}")
@@ -195,7 +180,6 @@ object StatsRepository {
     }
 
     // ========== 统计数据获取方法 ==========
-
     suspend fun getTotalRuntime(): Long = withContext(Dispatchers.IO) {
         return@withContext _statistics.value.totalRuntime
     }
@@ -217,12 +201,27 @@ object StatsRepository {
     }
 
     suspend fun getAvgGpuFreq(): Long = withContext(Dispatchers.IO) {
-        val freqFile = "/sys/class/kgsl/kgsl-3d0/devfreq/kgsl-3d0/cur_freq"
+        // 动态查找正确的 devfreq 目录和 cur_freq 文件
         try {
-            val freq = File(freqFile).readText().trim().toLongOrNull() ?: 770000000L
-            _avgGpuFreq = (_avgGpuFreq * 0.9 + freq * 0.1).toLong()
+            val devfreqBase = "/sys/class/devfreq"
+            val kgslDir = File(devfreqBase).listFiles { file -> file.isDirectory && file.name.contains("kgsl") }?.firstOrNull()
+            if (kgslDir != null) {
+                val curFreqFile = File(kgslDir, "cur_freq")
+                if (curFreqFile.exists()) {
+                    val freq = curFreqFile.readText().trim().toLongOrNull()
+                    if (freq != null) {
+                        _avgGpuFreq = (_avgGpuFreq * 0.9 + freq * 0.1).toLong()
+                    } else {
+                        Log.d(TAG, "Invalid cur_freq content")
+                    }
+                } else {
+                    Log.d(TAG, "cur_freq not found in $kgslDir")
+                }
+            } else {
+                Log.d(TAG, "No kgsl devfreq directory found")
+            }
         } catch (e: Exception) {
-            LogRepository.error(TAG, "Failed to read GPU frequency")
+            Log.d(TAG, "Could not read GPU frequency: ${e.message}")
         }
         return@withContext _avgGpuFreq
     }
@@ -304,11 +303,9 @@ object StatsRepository {
     }
 
     // ========== 统计数据记录方法 ==========
-
     suspend fun recordGpuOptimization() = withContext(Dispatchers.IO) {
         _gpuOptimizations++
         _totalOptimizations++
-        Log.d(TAG, "Recorded GPU optimization: total=$_totalOptimizations")
         updateAndSave()
     }
 
@@ -316,26 +313,22 @@ object StatsRepository {
         _suppressedApps += count
         _oomAdjustments++
         _totalOptimizations++
-        Log.d(TAG, "Recorded app suppression: count=$count, total=$_suppressedApps")
         updateAndSave()
     }
 
     suspend fun recordCpuBinding() = withContext(Dispatchers.IO) {
         _cpuBindingCount++
         _totalOptimizations++
-        Log.d(TAG, "Recorded CPU binding: total=$_cpuBindingCount")
         updateAndSave()
     }
 
     suspend fun recordFrozenApp() = withContext(Dispatchers.IO) {
         _frozenApps++
-        Log.d(TAG, "Recorded frozen app: total=$_frozenApps")
         updateAndSave()
     }
 
     suspend fun recordThawedApp() = withContext(Dispatchers.IO) {
         _thawedApps++
-        Log.d(TAG, "Recorded thawed app: total=$_thawedApps")
         updateAndSave()
     }
 
@@ -347,21 +340,14 @@ object StatsRepository {
             "call" -> _callSceneCount++
             "cast" -> _castSceneCount++
         }
-        Log.d(TAG, "Recorded scene: $sceneType")
         updateAndSave()
     }
 
-    /**
-     * 更新 StateFlow 并保存到文件
-     */
     private suspend fun updateAndSave() {
         updateStateFlow()
         saveStatsToFile()
     }
 
-    /**
-     * 重置所有统计数据
-     */
     suspend fun resetStats() = statsMutex.withLock {
         withContext(Dispatchers.IO) {
             _totalRuntimeHistory = 0L
@@ -392,8 +378,6 @@ object StatsRepository {
 
             updateStateFlow()
             saveStatsToFile()
-
-            LogRepository.info(TAG, "Statistics reset")
         }
     }
 }
