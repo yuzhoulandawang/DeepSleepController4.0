@@ -3,8 +3,8 @@ package com.example.deepsleep.ui.main
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.deepsleep.data.LogRepository
 import com.example.deepsleep.data.SettingsRepository
+import com.example.deepsleep.data.LogRepository
 import com.example.deepsleep.model.AppSettings
 import com.example.deepsleep.root.OptimizationManager
 import com.example.deepsleep.root.ProcessSuppressor
@@ -42,7 +42,7 @@ class MainViewModel : ViewModel() {
             val hasRoot = try {
                 RootCommander.checkRoot()
             } catch (e: Exception) {
-                Log.e(TAG, "Failed to check root status", e)
+                Log.e(TAG, "Failed to check root status via RootCommander", e)
                 false
             }
             _settings.value = _settings.value.copy(rootGranted = hasRoot)
@@ -51,7 +51,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 深度睡眠控制
+    // ========== 深度睡眠控制 ==========
     fun setDeepSleepEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(deepSleepEnabled = enabled)
@@ -74,7 +74,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 深度 Doze 配置
+    // ========== 深度 Doze 配置 ==========
     fun setDeepDozeEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(deepDozeEnabled = enabled)
@@ -96,7 +96,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 深度睡眠 Hook 配置
+    // ========== 深度睡眠 Hook 配置 ==========
     fun setDeepSleepHookEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(deepSleepHookEnabled = enabled)
@@ -125,7 +125,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 系统省电模式联动
+    // ========== 系统省电模式联动 ==========
     fun setEnablePowerSaverOnSleep(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(enablePowerSaverOnSleep = enabled)
@@ -140,7 +140,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 后台优化
+    // ========== 后台优化 ==========
     fun setBackgroundOptimizationEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(backgroundOptimizationEnabled = enabled)
@@ -167,7 +167,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // GPU 优化
+    // ========== GPU 优化 ==========
     fun setGpuOptimizationEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(gpuOptimizationEnabled = enabled)
@@ -245,11 +245,12 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    // GPU 模式快捷按钮
     fun applyGpuPerformanceMode() = setGpuMode("performance")
     fun applyGpuPowerSavingMode() = setGpuMode("power_saving")
     fun applyGpuDefaultMode() = setGpuMode("default")
 
-    // 电池优化
+    // ========== 电池优化 ==========
     fun setBatteryOptimizationEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(batteryOptimizationEnabled = enabled)
@@ -264,7 +265,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // CPU 绑定
+    // ========== CPU 绑定 ==========
     fun setCpuBindEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(cpuBindEnabled = enabled)
@@ -279,7 +280,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // CPU 调度优化
+    // ========== CPU 调度优化 ==========
     fun setCpuOptimizationEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(cpuOptimizationEnabled = enabled)
@@ -319,7 +320,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // Freezer 服务
+    // ========== Freezer 服务 ==========
     fun setFreezerEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(freezerEnabled = enabled)
@@ -334,7 +335,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 场景检测
+    // ========== 场景检测 ==========
     fun setSceneCheckEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(sceneCheckEnabled = enabled)
@@ -405,7 +406,7 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 进程压制
+    // ========== 进程压制 ==========
     fun setProcessSuppressEnabled(enabled: Boolean) {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(processSuppressEnabled = enabled)
@@ -420,22 +421,26 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 辅助函数
+    // ========== 辅助函数 ==========
+    /**
+     * 切换 CPU 调度器为 WALT
+     * 遍历所有 policy 并将 scaling_governor 设置为 "walt"
+     */
     private suspend fun switchSchedulerToWalt() {
         val script = """
             for policy in /sys/devices/system/cpu/cpufreq/policy*; do
-                [ -d "\$policy" ] || continue
-                if [ -w "\$policy/scaling_governor" ]; then
-                    current=\$(cat "\$policy/scaling_governor" 2>/dev/null)
-                    if [ "\$current" != "walt" ]; then
-                        echo "walt" > "\$policy/scaling_governor" 2>/dev/null
+                [ -d "${'$'}policy" ] || continue
+                if [ -w "${'$'}policy/scaling_governor" ]; then
+                    current=${'$'}(cat "${'$'}policy/scaling_governor" 2>/dev/null)
+                    if [ "${'$'}current" != "walt" ]; then
+                        echo "walt" > "${'$'}policy/scaling_governor" 2>/dev/null
                     fi
                 fi
             done
         """.trimIndent()
         val result = RootCommander.exec(script)
         if (result.isSuccess) {
-            LogRepository.info(TAG, "Successfully switched scaling_governor to walt")
+            LogRepository.info(TAG, "Successfully switched scaling_governor to walt for all policies")
         } else {
             LogRepository.error(TAG, "Failed to switch scaling_governor to walt: ${result.err}")
         }
