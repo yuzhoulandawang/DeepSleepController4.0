@@ -13,6 +13,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.deepsleep.model.Statistics
+// 导入 Computer 图标作为替代
+import androidx.compose.material.icons.filled.Computer
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,7 +123,7 @@ fun StatsScreen(
                         StatRow(
                             label = "CPU 绑定次数",
                             value = "${statistics.cpuBindingCount}",
-                            icon = Icons.Default.Memory   // 修复：将 Cpu 改为 Memory
+                            icon = Icons.Default.Computer   // 使用 Computer 替代 Cpu
                         )
                         StatRow(
                             label = "当前 CPU 模式",
