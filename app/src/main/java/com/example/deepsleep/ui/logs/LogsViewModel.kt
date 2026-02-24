@@ -2,8 +2,6 @@ package com.example.deepsleep.ui.logs
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
-import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.deepsleep.data.LogRepository
@@ -13,8 +11,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.io.File
+import kotlinx.coroutines.flow.SharingStarted
 
 class LogsViewModel : ViewModel() {
 
@@ -24,9 +23,17 @@ class LogsViewModel : ViewModel() {
     private val _selectedLevel = MutableStateFlow<LogLevel?>(null)
     val selectedLevel: StateFlow<LogLevel?> = _selectedLevel.asStateFlow()
 
-    val filteredLogs = combine(_logs, _selectedLevel) { logs, level ->
+    // 使用 stateIn 提供初始值，避免 Compose 中 collectAsState 需要初始值的问题
+    val filteredLogs: StateFlow<List<LogEntry>> = combine(
+        _logs,
+        _selectedLevel
+    ) { logs, level ->
         if (level == null) logs else logs.filter { it.level == level }
-    }
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     init {
         refreshLogs()
@@ -35,7 +42,6 @@ class LogsViewModel : ViewModel() {
     fun refreshLogs() {
         viewModelScope.launch {
             _logs.value = try {
-                // 读取日志后按时间戳降序排列（最新的在前）
                 LogRepository.readLogs().sortedByDescending { it.timestamp }
             } catch (e: Exception) {
                 emptyList()
