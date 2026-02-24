@@ -40,7 +40,6 @@ fun StatsScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 }
-                // 已移除刷新按钮，因为自动刷新
             )
         }
     ) { padding ->
@@ -51,7 +50,7 @@ fun StatsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // 总体概览卡片
+            // 总体概览卡片（移除节省电量和释放内存）
             item {
                 StatsCard(title = "📊 优化概览") {
                     Column(
@@ -64,14 +63,6 @@ fun StatsScreen(
                         StatRow(
                             label = "优化次数",
                             value = "${statistics.totalOptimizations}"
-                        )
-                        StatRow(
-                            label = "节省电量",
-                            value = "${statistics.powerSaved} mAh"
-                        )
-                        StatRow(
-                            label = "释放内存",
-                            value = "${statistics.memoryReleased} MB"
                         )
                     }
                 }
