@@ -35,7 +35,8 @@ class LogsViewModel : ViewModel() {
     fun refreshLogs() {
         viewModelScope.launch {
             _logs.value = try {
-                LogRepository.readLogs()
+                // 读取日志后按时间戳降序排列（最新的在前）
+                LogRepository.readLogs().sortedByDescending { it.timestamp }
             } catch (e: Exception) {
                 emptyList()
             }
