@@ -22,9 +22,6 @@ import com.example.deepsleep.model.LogLevel
 import java.text.SimpleDateFormat
 import java.util.*
 
-/**
- * 日志页面
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LogsScreen(
@@ -35,8 +32,11 @@ fun LogsScreen(
     val logs by viewModel.logs.collectAsState()
     val filteredLogs by viewModel.filteredLogs.collectAsState()
     val selectedLevel by viewModel.selectedLevel.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("日志") },
@@ -46,11 +46,25 @@ fun LogsScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.exportLogs(context) }) {
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                val result = viewModel.exportLogs(context)
+                                snackbarHostState.showSnackbar(result)
+                            }
+                        }
+                    ) {
                         Icon(Icons.Default.Download, contentDescription = "导出")
                     }
-                    IconButton(onClick = { viewModel.clearLogs() }) {
-                        Icon(Icons.Default.Clear, contentDescription = "清除")
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                viewModel.clearLogs()
+                                snackbarHostState.showSnackbar("日志已清除")
+                            }
+                        }
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = "清除")
                     }
                 }
             )
@@ -106,53 +120,40 @@ fun LevelFilter(
             .padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // 全部
         FilterChip(
             selected = selectedLevel == null,
             onClick = { onLevelSelected(null) },
             label = { Text("全部") }
         )
-
-        // DEBUG
         FilterChip(
             selected = selectedLevel == LogLevel.DEBUG,
             onClick = { onLevelSelected(LogLevel.DEBUG) },
-            label = { Text("DEBUG") }
+            label = { Text("调试") }
         )
-
-        // INFO
         FilterChip(
             selected = selectedLevel == LogLevel.INFO,
             onClick = { onLevelSelected(LogLevel.INFO) },
-            label = { Text("INFO") }
+            label = { Text("信息") }
         )
-
-        // SUCCESS
         FilterChip(
             selected = selectedLevel == LogLevel.SUCCESS,
             onClick = { onLevelSelected(LogLevel.SUCCESS) },
-            label = { Text("SUCCESS") }
+            label = { Text("成功") }
         )
-
-        // WARNING
         FilterChip(
             selected = selectedLevel == LogLevel.WARNING,
             onClick = { onLevelSelected(LogLevel.WARNING) },
-            label = { Text("WARNING") }
+            label = { Text("警告") }
         )
-
-        // ERROR
         FilterChip(
             selected = selectedLevel == LogLevel.ERROR,
             onClick = { onLevelSelected(LogLevel.ERROR) },
-            label = { Text("ERROR") }
+            label = { Text("错误") }
         )
-
-        // FATAL
         FilterChip(
             selected = selectedLevel == LogLevel.FATAL,
             onClick = { onLevelSelected(LogLevel.FATAL) },
-            label = { Text("FATAL") }
+            label = { Text("致命") }
         )
     }
 }
@@ -160,11 +161,20 @@ fun LevelFilter(
 @Composable
 fun LogItem(log: LogEntry) {
     val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
+    val levelColor = getLogLevelColor(log.level)
+    val levelName = when (log.level) {
+        LogLevel.DEBUG -> "调试"
+        LogLevel.INFO -> "信息"
+        LogLevel.SUCCESS -> "成功"
+        LogLevel.WARNING -> "警告"
+        LogLevel.ERROR -> "错误"
+        LogLevel.FATAL -> "致命"
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = getLogLevelColor(log.level).copy(alpha = 0.1f)
+            containerColor = levelColor.copy(alpha = 0.1f)
         )
     ) {
         Column(
@@ -175,7 +185,6 @@ fun LogItem(log: LogEntry) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 时间和标签
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -185,10 +194,19 @@ fun LogItem(log: LogEntry) {
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    LogLevelBadge(log.level)
+                    Surface(
+                        color = levelColor,
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = levelName,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White
+                        )
+                    }
                 }
 
-                // 模块
                 if (log.tag.isNotEmpty()) {
                     Text(
                         text = log.tag,
@@ -199,7 +217,6 @@ fun LogItem(log: LogEntry) {
                 }
             }
 
-            // 消息
             if (log.message.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -208,7 +225,6 @@ fun LogItem(log: LogEntry) {
                 )
             }
 
-            // 异常堆栈
             if (log.throwable != null) {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -219,30 +235,6 @@ fun LogItem(log: LogEntry) {
                 )
             }
         }
-    }
-}
-
-@Composable
-fun LogLevelBadge(level: LogLevel) {
-    val (color, text) = when (level) {
-        LogLevel.DEBUG -> Color.Gray to "D"
-        LogLevel.INFO -> Color(0xFF2196F3) to "I"
-        LogLevel.SUCCESS -> Color(0xFF4CAF50) to "S"
-        LogLevel.WARNING -> Color(0xFFFF9800) to "W"
-        LogLevel.ERROR -> Color(0xFFF44336) to "E"
-        LogLevel.FATAL -> Color(0xFF9C27B0) to "F"
-    }
-
-    Surface(
-        color = color,
-        shape = MaterialTheme.shapes.small
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White
-        )
     }
 }
 
