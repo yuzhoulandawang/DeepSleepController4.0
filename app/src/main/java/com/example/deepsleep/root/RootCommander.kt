@@ -20,7 +20,6 @@ object RootCommander {
 
     private suspend fun ensureShell(): Boolean = withContext(Dispatchers.IO) {
         return@withContext try {
-            // 直接获取 shell，若失效会自动重建
             Shell.getShell()
             true
         } catch (e: Exception) {
