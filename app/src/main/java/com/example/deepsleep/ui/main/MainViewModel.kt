@@ -285,6 +285,11 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(cpuOptimizationEnabled = enabled)
             SettingsRepository.setCpuOptimizationEnabled(enabled)
+            // 如果启用，立即切换调度器为 WALT
+            if (enabled) {
+                switchSchedulerToWalt()
+            }
+            LogRepository.info(TAG, "CPU optimization enabled: $enabled")
         }
     }
 
@@ -414,6 +419,31 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(suppressScore = score)
             SettingsRepository.setSuppressScore(score)
+        }
+    }
+
+    // ========== 辅助函数 ==========
+    /**
+     * 切换 CPU 调度器为 WALT
+     * 遍历所有 policy 并将 scaling_governor 设置为 "walt"
+     */
+    private suspend fun switchSchedulerToWalt() {
+        val script = """
+            for policy in /sys/devices/system/cpu/cpufreq/policy*; do
+                [ -d "\$policy" ] || continue
+                if [ -w "\$policy/scaling_governor" ]; then
+                    current=\$(cat "\$policy/scaling_governor" 2>/dev/null)
+                    if [ "\$current" != "walt" ]; then
+                        echo "walt" > "\$policy/scaling_governor" 2>/dev/null
+                    fi
+                fi
+            done
+        """.trimIndent()
+        val result = RootCommander.exec(script)
+        if (result.isSuccess) {
+            LogRepository.info(TAG, "Successfully switched scaling_governor to walt for all policies")
+        } else {
+            LogRepository.error(TAG, "Failed to switch scaling_governor to walt: ${result.err}")
         }
     }
 }
