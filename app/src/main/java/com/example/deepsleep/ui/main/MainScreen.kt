@@ -21,7 +21,7 @@ import com.example.deepsleep.model.AppSettings
 import kotlinx.coroutines.launch
 
 /**
- * 主页面（整合所有设置项，无图标，芯片式模式选择，新增进程压制卡片）
+ * 主页面（整合所有设置项，无图标，芯片式模式选择，场景检测改为跳转）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -29,6 +29,7 @@ fun MainScreen(
     onNavigateToLogs: () -> Unit,
     onNavigateToWhitelist: () -> Unit,
     onNavigateToStats: () -> Unit,
+    onNavigateToSceneCheck: () -> Unit,  // 新增：跳转到场景检测配置页
     viewModel: MainViewModel = viewModel()
 ) {
     val settings by viewModel.settings.collectAsState()
@@ -146,7 +147,7 @@ fun MainScreen(
             // 白名单管理
             WhitelistSection(settings, viewModel, onNavigateToWhitelist)
 
-            // CPU 调度优化（提前）
+            // CPU 调度优化
             CpuSchedulerSection(settings, viewModel)
 
             // GPU 优化（芯片式模式选择）
@@ -158,67 +159,25 @@ fun MainScreen(
             // 电池优化
             BatteryOptimizationSection(settings, viewModel)
 
-            // 进程压制（新增卡片）
+            // 进程压制
             ProcessSuppressSection(settings, viewModel, focusManager)
 
             // Freezer 服务
             FreezerSection(settings, viewModel, focusManager)
 
-            // 场景检测配置
+            // 场景检测（改为可点击卡片）
             SettingsSection(title = "场景检测") {
                 SwitchItem(
-                    title = "检测流量活跃",
-                    subtitle = "有活跃流量时阻止深度睡眠",
-                    checked = settings.checkNetworkTraffic,
-                    onCheckedChange = { viewModel.setCheckNetworkTraffic(it) }
+                    title = "启用场景检测",
+                    subtitle = "检测特定场景并调整优化策略",
+                    checked = settings.sceneCheckEnabled,
+                    onCheckedChange = { viewModel.setSceneCheckEnabled(it) }
                 )
-                SwitchItem(
-                    title = "检测音频播放",
-                    subtitle = "有音频播放时阻止深度睡眠",
-                    checked = settings.checkAudioPlayback,
-                    onCheckedChange = { viewModel.setCheckAudioPlayback(it) }
-                )
-                SwitchItem(
-                    title = "检测导航应用",
-                    subtitle = "导航应用运行时阻止深度睡眠",
-                    checked = settings.checkNavigation,
-                    onCheckedChange = { viewModel.setCheckNavigation(it) }
-                )
-                SwitchItem(
-                    title = "检测通话状态",
-                    subtitle = "通话中阻止深度睡眠",
-                    checked = settings.checkPhoneCall,
-                    onCheckedChange = { viewModel.setCheckPhoneCall(it) }
-                )
-                SwitchItem(
-                    title = "检测 NFC/P2P",
-                    subtitle = "NFC 传输中阻止深度睡眠",
-                    checked = settings.checkNfcP2p,
-                    onCheckedChange = { viewModel.setCheckNfcP2p(it) }
-                )
-                SwitchItem(
-                    title = "检测 WiFi 热点",
-                    subtitle = "热点开启时阻止深度睡眠",
-                    checked = settings.checkWifiHotspot,
-                    onCheckedChange = { viewModel.setCheckWifiHotspot(it) }
-                )
-                SwitchItem(
-                    title = "检测 USB 网络共享",
-                    subtitle = "USB 共享时阻止深度睡眠",
-                    checked = settings.checkUsbTethering,
-                    onCheckedChange = { viewModel.setCheckUsbTethering(it) }
-                )
-                SwitchItem(
-                    title = "检测投屏",
-                    subtitle = "投屏中阻止深度睡眠",
-                    checked = settings.checkScreenCasting,
-                    onCheckedChange = { viewModel.setCheckScreenCasting(it) }
-                )
-                SwitchItem(
-                    title = "检测充电状态",
-                    subtitle = "充电时阻止深度睡眠",
-                    checked = settings.checkCharging,
-                    onCheckedChange = { viewModel.setCheckCharging(it) }
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                ClickableItem(
+                    title = "配置检测项",
+                    subtitle = "选择要检测的场景类型",
+                    onClick = onNavigateToSceneCheck
                 )
             }
 
@@ -365,7 +324,7 @@ fun BatteryOptimizationSection(settings: AppSettings, viewModel: MainViewModel) 
     }
 }
 
-// ========== 新增：CPU 调度优化卡片（保持不变，但已无图标） ==========
+// CPU 调度优化
 @Composable
 fun CpuSchedulerSection(settings: AppSettings, viewModel: MainViewModel) {
     SettingsSection(title = "CPU 调度优化") {
@@ -452,7 +411,7 @@ fun CpuSchedulerSection(settings: AppSettings, viewModel: MainViewModel) {
     }
 }
 
-// ========== 修改：GPU 优化改为芯片式选择 ==========
+// GPU 优化（芯片式）
 @Composable
 fun GpuOptimizationSectionChip(settings: AppSettings, viewModel: MainViewModel) {
     SettingsSection(title = "GPU 优化") {
@@ -494,7 +453,7 @@ fun GpuOptimizationSectionChip(settings: AppSettings, viewModel: MainViewModel) 
     }
 }
 
-// ========== 修改：CPU 绑定改为芯片式选择 ==========
+// CPU 绑定（芯片式）
 @Composable
 fun CpuBindSectionChip(settings: AppSettings, viewModel: MainViewModel) {
     SettingsSection(title = "CPU 绑定") {
@@ -536,7 +495,7 @@ fun CpuBindSectionChip(settings: AppSettings, viewModel: MainViewModel) {
     }
 }
 
-// ========== 新增：进程压制卡片 ==========
+// 进程压制
 @Composable
 fun ProcessSuppressSection(
     settings: AppSettings,
@@ -570,7 +529,7 @@ fun ProcessSuppressSection(
     }
 }
 
-// ========== Freezer 服务卡片（无图标） ==========
+// Freezer 服务
 @Composable
 fun FreezerSection(
     settings: AppSettings,
@@ -604,7 +563,7 @@ fun FreezerSection(
     }
 }
 
-// ========== 通用组件（无图标） ==========
+// ========== 通用组件 ==========
 @Composable
 fun SettingsSection(
     title: String,
