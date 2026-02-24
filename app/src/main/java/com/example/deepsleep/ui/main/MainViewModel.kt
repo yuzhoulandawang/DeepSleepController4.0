@@ -8,16 +8,12 @@ import com.example.deepsleep.data.LogRepository
 import com.example.deepsleep.model.AppSettings
 import com.example.deepsleep.root.OptimizationManager
 import com.example.deepsleep.root.ProcessSuppressor
-import com.example.deepsleep.root.RootCommander   // 添加导入
+import com.example.deepsleep.root.RootCommander
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * 主页面 ViewModel
- * 管理主界面的状态和业务逻辑
- */
 class MainViewModel : ViewModel() {
 
     companion object {
@@ -41,7 +37,6 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    // 修改点：使用 RootCommander.checkRoot() 替代 Runtime.exec
     fun refreshRootStatus() {
         viewModelScope.launch {
             val hasRoot = try {
@@ -51,6 +46,7 @@ class MainViewModel : ViewModel() {
                 false
             }
             _settings.value = _settings.value.copy(rootGranted = hasRoot)
+            SettingsRepository.setRootGranted(hasRoot)
             LogRepository.info(TAG, "Root status refreshed: $hasRoot")
         }
     }
@@ -78,6 +74,72 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    // ========== 深度 Doze 配置 ==========
+    fun setDeepDozeEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(deepDozeEnabled = enabled)
+            SettingsRepository.setDeepDozeEnabled(enabled)
+        }
+    }
+
+    fun setDeepDozeDelaySeconds(seconds: Int) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(deepDozeDelaySeconds = seconds)
+            SettingsRepository.setDeepDozeDelaySeconds(seconds)
+        }
+    }
+
+    fun setDeepDozeForceMode(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(deepDozeForceMode = enabled)
+            SettingsRepository.setDeepDozeForceMode(enabled)
+        }
+    }
+
+    // ========== 深度睡眠 Hook 配置 ==========
+    fun setDeepSleepHookEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(deepSleepHookEnabled = enabled)
+            SettingsRepository.setDeepSleepHookEnabled(enabled)
+        }
+    }
+
+    fun setDeepSleepDelaySeconds(seconds: Int) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(deepSleepDelaySeconds = seconds)
+            SettingsRepository.setDeepSleepDelaySeconds(seconds)
+        }
+    }
+
+    fun setDeepSleepBlockExit(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(deepSleepBlockExit = enabled)
+            SettingsRepository.setDeepSleepBlockExit(enabled)
+        }
+    }
+
+    fun setDeepSleepCheckInterval(seconds: Int) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(deepSleepCheckInterval = seconds)
+            SettingsRepository.setDeepSleepCheckInterval(seconds)
+        }
+    }
+
+    // ========== 系统省电模式联动 ==========
+    fun setEnablePowerSaverOnSleep(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(enablePowerSaverOnSleep = enabled)
+            SettingsRepository.setEnablePowerSaverOnSleep(enabled)
+        }
+    }
+
+    fun setDisablePowerSaverOnWake(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(disablePowerSaverOnWake = enabled)
+            SettingsRepository.setDisablePowerSaverOnWake(enabled)
+        }
+    }
+
     // ========== 后台优化 ==========
     fun setBackgroundOptimizationEnabled(enabled: Boolean) {
         viewModelScope.launch {
@@ -98,7 +160,6 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(backgroundRestrictEnabled = enabled)
             SettingsRepository.setBackgroundRestrictEnabled(enabled)
-            // 真实实现：调用 ProcessSuppressor
             if (enabled) {
                 val count = ProcessSuppressor.suppressBackgroundApps(_settings.value.suppressScore)
                 LogRepository.info(TAG, "Background restrict enabled, suppressed $count apps")
@@ -118,7 +179,6 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(gpuMode = mode)
             SettingsRepository.setGpuMode(mode)
-            // 应用 GPU 模式
             val optMode = when (mode) {
                 "performance" -> OptimizationManager.PerformanceMode.PERFORMANCE
                 "power_saving" -> OptimizationManager.PerformanceMode.STANDBY
@@ -186,17 +246,9 @@ class MainViewModel : ViewModel() {
     }
 
     // GPU 模式快捷按钮
-    fun applyGpuPerformanceMode() {
-        setGpuMode("performance")
-    }
-
-    fun applyGpuPowerSavingMode() {
-        setGpuMode("power_saving")
-    }
-
-    fun applyGpuDefaultMode() {
-        setGpuMode("default")
-    }
+    fun applyGpuPerformanceMode() = setGpuMode("performance")
+    fun applyGpuPowerSavingMode() = setGpuMode("power_saving")
+    fun applyGpuDefaultMode() = setGpuMode("default")
 
     // ========== 电池优化 ==========
     fun setBatteryOptimizationEnabled(enabled: Boolean) {
@@ -228,6 +280,42 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    // ========== CPU 调度优化 ==========
+    fun setCpuOptimizationEnabled(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(cpuOptimizationEnabled = enabled)
+            SettingsRepository.setCpuOptimizationEnabled(enabled)
+        }
+    }
+
+    fun setAutoSwitchCpuMode(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(autoSwitchCpuMode = enabled)
+            SettingsRepository.setAutoSwitchCpuMode(enabled)
+        }
+    }
+
+    fun setAllowManualCpuMode(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(allowManualCpuMode = enabled)
+            SettingsRepository.setAllowManualCpuMode(enabled)
+        }
+    }
+
+    fun setCpuModeOnScreen(mode: String) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(cpuModeOnScreen = mode)
+            SettingsRepository.setCpuModeOnScreen(mode)
+        }
+    }
+
+    fun setCpuModeOnScreenOff(mode: String) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(cpuModeOnScreenOff = mode)
+            SettingsRepository.setCpuModeOnScreenOff(mode)
+        }
+    }
+
     // ========== Freezer 服务 ==========
     fun setFreezerEnabled(enabled: Boolean) {
         viewModelScope.launch {
@@ -248,6 +336,69 @@ class MainViewModel : ViewModel() {
         viewModelScope.launch {
             _settings.value = _settings.value.copy(sceneCheckEnabled = enabled)
             SettingsRepository.setSceneCheckEnabled(enabled)
+        }
+    }
+
+    fun setCheckNetworkTraffic(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(checkNetworkTraffic = enabled)
+            SettingsRepository.setCheckNetworkTraffic(enabled)
+        }
+    }
+
+    fun setCheckAudioPlayback(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(checkAudioPlayback = enabled)
+            SettingsRepository.setCheckAudioPlayback(enabled)
+        }
+    }
+
+    fun setCheckNavigation(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(checkNavigation = enabled)
+            SettingsRepository.setCheckNavigation(enabled)
+        }
+    }
+
+    fun setCheckPhoneCall(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(checkPhoneCall = enabled)
+            SettingsRepository.setCheckPhoneCall(enabled)
+        }
+    }
+
+    fun setCheckNfcP2p(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(checkNfcP2p = enabled)
+            SettingsRepository.setCheckNfcP2p(enabled)
+        }
+    }
+
+    fun setCheckWifiHotspot(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(checkWifiHotspot = enabled)
+            SettingsRepository.setCheckWifiHotspot(enabled)
+        }
+    }
+
+    fun setCheckUsbTethering(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(checkUsbTethering = enabled)
+            SettingsRepository.setCheckUsbTethering(enabled)
+        }
+    }
+
+    fun setCheckScreenCasting(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(checkScreenCasting = enabled)
+            SettingsRepository.setCheckScreenCasting(enabled)
+        }
+    }
+
+    fun setCheckCharging(enabled: Boolean) {
+        viewModelScope.launch {
+            _settings.value = _settings.value.copy(checkCharging = enabled)
+            SettingsRepository.setCheckCharging(enabled)
         }
     }
 
