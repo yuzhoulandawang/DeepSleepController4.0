@@ -22,6 +22,7 @@ import com.example.deepsleep.model.AppSettings
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.FocusManager
 
 /**
  * 主页面（整合所有设置项，数值输入统一为圆角文本框，仅保留卡片标题图标）
