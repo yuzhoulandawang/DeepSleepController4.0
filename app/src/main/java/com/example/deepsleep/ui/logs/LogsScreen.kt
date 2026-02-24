@@ -35,7 +35,7 @@ fun LogsScreen(
     val logs by viewModel.logs.collectAsState()
     val filteredLogs by viewModel.filteredLogs.collectAsState()
     val selectedLevel by viewModel.selectedLevel.collectAsState()
-    
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -66,7 +66,7 @@ fun LogsScreen(
                 selectedLevel = selectedLevel,
                 onLevelSelected = { viewModel.setLevelFilter(it) }
             )
-            
+
             // 日志列表
             if (filteredLogs.isEmpty()) {
                 Box(
@@ -85,7 +85,7 @@ fun LogsScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(filteredLogs, key = { "${it.timestamp}-${it.message}" }) { log ->
+                    items(filteredLogs) { log ->
                         LogItem(log = log)
                     }
                 }
@@ -112,42 +112,42 @@ fun LevelFilter(
             onClick = { onLevelSelected(null) },
             label = { Text("全部") }
         )
-        
+
         // DEBUG
         FilterChip(
             selected = selectedLevel == LogLevel.DEBUG,
             onClick = { onLevelSelected(LogLevel.DEBUG) },
             label = { Text("DEBUG") }
         )
-        
+
         // INFO
         FilterChip(
             selected = selectedLevel == LogLevel.INFO,
             onClick = { onLevelSelected(LogLevel.INFO) },
             label = { Text("INFO") }
         )
-        
+
         // SUCCESS
         FilterChip(
             selected = selectedLevel == LogLevel.SUCCESS,
             onClick = { onLevelSelected(LogLevel.SUCCESS) },
             label = { Text("SUCCESS") }
         )
-        
+
         // WARNING
         FilterChip(
             selected = selectedLevel == LogLevel.WARNING,
             onClick = { onLevelSelected(LogLevel.WARNING) },
             label = { Text("WARNING") }
         )
-        
+
         // ERROR
         FilterChip(
             selected = selectedLevel == LogLevel.ERROR,
             onClick = { onLevelSelected(LogLevel.ERROR) },
             label = { Text("ERROR") }
         )
-        
+
         // FATAL
         FilterChip(
             selected = selectedLevel == LogLevel.FATAL,
@@ -160,7 +160,7 @@ fun LevelFilter(
 @Composable
 fun LogItem(log: LogEntry) {
     val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-    
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -187,7 +187,7 @@ fun LogItem(log: LogEntry) {
                     )
                     LogLevelBadge(log.level)
                 }
-                
+
                 // 模块
                 if (log.tag.isNotEmpty()) {
                     Text(
@@ -198,7 +198,7 @@ fun LogItem(log: LogEntry) {
                     )
                 }
             }
-            
+
             // 消息
             if (log.message.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -207,7 +207,7 @@ fun LogItem(log: LogEntry) {
                     style = MaterialTheme.typography.bodyMedium
                 )
             }
-            
+
             // 异常堆栈
             if (log.throwable != null) {
                 Spacer(modifier = Modifier.height(4.dp))
@@ -232,7 +232,7 @@ fun LogLevelBadge(level: LogLevel) {
         LogLevel.ERROR -> Color(0xFFF44336) to "E"
         LogLevel.FATAL -> Color(0xFF9C27B0) to "F"
     }
-    
+
     Surface(
         color = color,
         shape = MaterialTheme.shapes.small
