@@ -79,6 +79,24 @@ jobs:
           echo "### KSP version insight" >> $GITHUB_STEP_SUMMARY
           ./gradlew app:dependencyInsight --dependency ksp --configuration debugCompileClasspath >> $GITHUB_STEP_SUMMARY || true
 
+      # ========== 验证文件内容（新增） ==========
+      - name: 🔍 Verify file contents
+        run: |
+          echo "### GpuOptimizer.kt Content" >> $GITHUB_STEP_SUMMARY
+          echo '```kotlin' >> $GITHUB_STEP_SUMMARY
+          cat app/src/main/java/com/example/deepsleep/root/GpuOptimizer.kt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          echo "### StatsScreen.kt Content" >> $GITHUB_STEP_SUMMARY
+          echo '```kotlin' >> $GITHUB_STEP_SUMMARY
+          cat app/src/main/java/com/example/deepsleep/ui/stats/StatsScreen.kt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
+          echo "### FreezerService.kt Content" >> $GITHUB_STEP_SUMMARY
+          echo '```kotlin' >> $GITHUB_STEP_SUMMARY
+          cat app/src/main/java/com/example/deepsleep/service/FreezerService.kt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
       # ========== 首次构建尝试 ==========
       - name: 🏗️ First build attempt
         id: first_build
